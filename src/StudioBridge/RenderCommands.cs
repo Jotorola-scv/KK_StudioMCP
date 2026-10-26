@@ -11,7 +11,6 @@ namespace StudioMcp.Bridge
     {
         internal bool OwnsSettings;
         internal JObject SkyBinding;
-        private Material _nativeSky;
         private bool _nativeSkyControllerEnabled;
 
         internal void ClearSkyBinding()
@@ -19,9 +18,10 @@ namespace StudioMcp.Bridge
             if (SkyBinding != null && Studio.Studio.Instance != null)
             {
                 NativeEffectsCommands.SkyController().enabled = _nativeSkyControllerEnabled;
-                if (_nativeSky != null) RenderSettings.skybox = _nativeSky;
+                // A skybox captured before binding can belong to a previous scene; let Studio re-apply the current pattern.
+                NativeEffectsCommands.RefreshSky();
             }
-            SkyBinding = null; _nativeSky = null;
+            SkyBinding = null;
         }
 
         internal JObject BindSky(JObject args)
@@ -34,10 +34,7 @@ namespace StudioMcp.Bridge
             var rotation = SceneCommands.Number(args["rotation"]);
             if (exposure < 0 || exposure > 8 || rotation < 0 || rotation > 360) throw new ArgumentOutOfRangeException("Sky exposure/rotation");
             if (!mat.HasProperty("_Exposure") || !mat.HasProperty("_Rotation")) throw new ArgumentException("Sky material lacks exposure/rotation.");
-            if (SkyBinding == null) {
-                _nativeSky = RenderSettings.skybox;
-                _nativeSkyControllerEnabled = NativeEffectsCommands.SkyController().enabled;
-            }
+            if (SkyBinding == null) _nativeSkyControllerEnabled = NativeEffectsCommands.SkyController().enabled;
             NativeEffectsCommands.SkyController().enabled = false;
             mat.SetFloat("_Exposure", exposure); mat.SetFloat("_Rotation", rotation);
             RenderSettings.skybox = mat; Camera.main.clearFlags = CameraClearFlags.Skybox;
