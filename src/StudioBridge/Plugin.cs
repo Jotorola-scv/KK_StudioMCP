@@ -30,6 +30,8 @@ namespace StudioMcp.Bridge
         internal SceneCommands Scene;
         internal MaterialCommands Materials;
         internal CaptureCommands Capture;
+        internal RenderCommands Rendering;
+        internal BatchCommands Batches;
         internal string Session = Guid.NewGuid().ToString("N");
         internal string OutputRoot;
         internal bool WritesEnabled => _allowWrites.Value
@@ -58,6 +60,8 @@ namespace StudioMcp.Bridge
             Scene = new SceneCommands(this);
             Materials = new MaterialCommands(this);
             Capture = new CaptureCommands(this);
+            Rendering = new RenderCommands();
+            Batches = new BatchCommands(this);
             _originalBackground = Application.runInBackground;
             Application.runInBackground = true;
             StudioSaveLoadApi.SceneLoad += SceneLoaded;
@@ -76,6 +80,7 @@ namespace StudioMcp.Bridge
         private void SceneLoaded(object sender, SceneLoadEventArgs args)
         {
             Session = Guid.NewGuid().ToString("N");
+            Batches.Clear();
         }
 
         internal void Accept(string message, Action<string> reply)
@@ -121,6 +126,7 @@ namespace StudioMcp.Bridge
                         if (!WritesEnabled) throw new UnauthorizedAccessException("Writes are disabled in bridge configuration.");
                         if ((string)args["sceneSession"] != Session) throw new InvalidOperationException("Scene session changed; inspect the scene again.");
                         if (Capture.Busy) throw new InvalidOperationException("Capture is in progress; scene writes are temporarily blocked.");
+                        if (!method.StartsWith("batch.", StringComparison.Ordinal)) Batches.Clear();
                     }
                     var result = Dispatch(method, args);
                     response = new JObject { ["id"] = id, ["ok"] = true, ["result"] = result };
@@ -134,33 +140,45 @@ namespace StudioMcp.Bridge
                 lock (_pending)
                 {
                     _inflight.Remove(id);
-                    _completed[id] = json;
-                    _completionOrder.Enqueue(id);
+                    // Large read-only image responses are retrievable by job id; don't duplicate them in the RPC cache.
+                    if (json.Length < 65536)
+                    {
+                        _completed[id] = json;
+                        _completionOrder.Enqueue(id);
+                    }
                     while (_completionOrder.Count > 128) _completed.Remove(_completionOrder.Dequeue());
                 }
                 try { work.Reply(json); } catch (Exception error) { Logger.LogWarning(error.Message); }
             }
         }
 
-        private JToken Dispatch(string method, JObject args)
+        internal JToken Dispatch(string method, JObject args)
         {
             if (method == "status") return new JObject
             {
                 ["sceneSession"] = Session, ["ready"] = Studio.Studio.Instance != null,
                 ["writesEnabled"] = WritesEnabled, ["captureBusy"] = Capture.Busy,
-                ["plugins"] = new JArray(Chainloader.PluginInfos.Values.Select(p => new JObject
+                ["plugins"] = new JArray(Chainloader.PluginInfos.Values.Where(p =>
+                    p.Metadata.Name.IndexOf("Material", StringComparison.OrdinalIgnoreCase) >= 0
+                    || p.Metadata.Name.IndexOf("Screencap", StringComparison.OrdinalIgnoreCase) >= 0
+                    || p.Metadata.GUID == "com.tomtom.studiomcp").Select(p => new JObject
                 { ["id"] = p.Metadata.GUID, ["name"] = p.Metadata.Name, ["version"] = p.Metadata.Version.ToString() })),
                 ["materialEditor"] = Materials.Available, ["screencap"] = Capture.Available
             };
             if (method.StartsWith("me.", StringComparison.Ordinal)) return Materials.Execute(method, args);
             if (method.StartsWith("capture.", StringComparison.Ordinal)) return Capture.Execute(method, args);
+            if (method.StartsWith("batch.", StringComparison.Ordinal)) return Batches.Execute(method, args);
+            if (method == "render.get") return Rendering.State();
+            if (method == "render.set") return Rendering.Apply((JObject)args["values"]);
             return Scene.Execute(method, args);
         }
 
         internal static bool IsWrite(string method)
         {
-            return method == "scene.add_item" || method == "object.set_transform"
-                || method == "camera.set" || method == "me.set";
+            return method == "scene.add_item" || method == "scene.add_character" || method == "scene.checkpoint"
+                || method == "scene.restore" || method == "object.set_transform" || method == "camera.set"
+                || method == "me.set" || method == "me.reset" || method == "me.import_texture"
+                || method == "render.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject

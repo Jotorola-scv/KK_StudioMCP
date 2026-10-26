@@ -46,6 +46,44 @@ public static class StudioTools
         int rendererId, string property, string kind, System.Text.Json.JsonElement value, int slot = 0)
         => bridge.Call("me.set", Args(new { sceneSession, objectId, rendererId, property, kind, value, slot }));
 
+    [McpServerTool, Description("Load a character card without writing to the original card. Materials are classified as Character, Hair, Clothing or Accessory with a part slot.")]
+    public static Task<JsonObject> AddCharacter(BridgeClient bridge, string sceneSession, string path,
+        string sex = "female", float[]? position = null, string? name = null)
+        => bridge.Call("scene.add_character", Args(new { sceneSession, path, sex, position, name }));
+
+    [McpServerTool, Description("Import a local PNG/JPEG through ME so texture bytes persist in the scene/card. Checkpoint first if you need to restore an earlier imported texture.")]
+    public static Task<JsonObject> MaterialImportTexture(BridgeClient bridge, string sceneSession, int objectId,
+        int rendererId, string property, string path, int slot = 0)
+        => bridge.Call("me.import_texture", Args(new { sceneSession, objectId, rendererId, property, path, slot, kind = "texture" }));
+
+    [McpServerTool, Description("Remove an ME Float/Color/texture override through its original reset API. This restores the provider's original value.")]
+    public static Task<JsonObject> MaterialReset(BridgeClient bridge, string sceneSession, int objectId,
+        int rendererId, string property, string kind, int slot = 0)
+        => bridge.Call("me.reset", Args(new { sceneSession, objectId, rendererId, property, kind, slot }));
+
+    [McpServerTool, Description("Read supported native Unity ambient, fog and quality settings. These are runtime settings; graphics mods may override them.")]
+    public static Task<JsonObject> RenderGet(BridgeClient bridge) => bridge.Call("render.get");
+
+    [McpServerTool, Description("Patch native render settings using keys returned by render_get. Checkpoints also store these in a sidecar. Does not edit arbitrary graphics-mod internals.")]
+    public static Task<JsonObject> RenderSet(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement values)
+        => bridge.Call("render.set", Args(new { sceneSession, values }));
+
+    [McpServerTool, Description("Save a new Studio scene PNG under UserData/StudioMCP using normal save hooks, plus a native-render-settings sidecar. Never overwrites an existing scene/card.")]
+    public static Task<JsonObject> SceneCheckpoint(BridgeClient bridge, string sceneSession)
+        => bridge.Call("scene.checkpoint", Args(new { sceneSession }));
+
+    [McpServerTool, Description("Replace the current scene with one of this bridge's checkpoint PNGs. Unsaved edits are lost. Re-read the scene and obtain fresh renderer handles after restoring.")]
+    public static Task<JsonObject> SceneRestore(BridgeClient bridge, string sceneSession, string path)
+        => bridge.Call("scene.restore", Args(new { sceneSession, path }));
+
+    [McpServerTool, Description("Apply 1-32 operations synchronously. Each is {method,args}; allowlist: me.set Float/Color, object.set_transform, camera.set, render.set. Prevalidates and rolls back on failure; returns a batchId for one-level undo.")]
+    public static Task<JsonObject> BatchApply(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement operations)
+        => bridge.Call("batch.apply", Args(new { sceneSession, operations }));
+
+    [McpServerTool, Description("Undo the most recent batch in the same scene, before any other bridge writes. Reports restoration failures explicitly.")]
+    public static Task<JsonObject> BatchUndo(BridgeClient bridge, string sceneSession, string batchId)
+        => bridge.Call("batch.undo", Args(new { sceneSession, batchId }));
+
     [McpServerTool, Description("Render through Screencap, return an image preview plus the full PNG path. Waits for actual capture completion; does not capture the desktop.")]
     public static async Task<CallToolResult> Capture(BridgeClient bridge, string sceneSession,
         int width = 640, int height = 360, int supersampling = 1)

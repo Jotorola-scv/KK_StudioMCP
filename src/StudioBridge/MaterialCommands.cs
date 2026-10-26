@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Reflection;
 using BepInEx.Bootstrap;
 using Newtonsoft.Json.Linq;
 using Studio;
@@ -11,17 +13,17 @@ namespace StudioMcp.Bridge
     internal sealed class MaterialCommands
     {
         private readonly Plugin _plugin;
-        private Component _controller;
         internal MaterialCommands(Plugin plugin) { _plugin = plugin; }
         internal bool Available => FindType("KK_Plugins.MaterialEditor.SceneController") != null;
 
         internal sealed class Target
         {
-            internal int ObjectId;
+            internal int ObjectId, Slot, PartSlot;
             internal GameObject Root;
             internal Renderer Renderer;
-            internal int Slot;
             internal Material Material;
+            internal Component Controller;
+            internal string Scope = "Item";
         }
 
         internal JToken Execute(string method, JObject args)
@@ -29,121 +31,219 @@ namespace StudioMcp.Bridge
             if (method == "me.list") return List((int)args["objectId"]);
             var target = Resolve(args);
             if (method == "me.inspect") return Inspect(target);
-            if (method != "me.set") throw new ArgumentException("Unsupported material method.");
             var name = (string)args["property"];
-            if (string.IsNullOrEmpty(name) || !target.Material.HasProperty(name))
-                throw new ArgumentException("Shader property does not exist: " + name);
-            var property = name.StartsWith("_", StringComparison.Ordinal) ? name.Substring(1) : name;
             var kind = (string)args["kind"] ?? "float";
-            object value;
-            string setter;
-            JToken before;
-            if (kind == "color")
+            ValidateProperty(target, name, kind);
+            var property = name.Substring(1);
+            var before = Value(target.Material, name, kind);
+            if (method == "me.reset")
+                Invoke(target, "RemoveMaterial" + Suffix(kind), property, null, true);
+            else if (method == "me.set" && kind != "texture")
             {
-                var rgba = args["value"] as JArray;
-                if (rgba == null || rgba.Count != 4) throw new ArgumentException("Color requires RGBA values.");
-                value = new Color(SceneCommands.Number(rgba[0]), SceneCommands.Number(rgba[1]),
-                    SceneCommands.Number(rgba[2]), SceneCommands.Number(rgba[3]));
-                setter = "SetMaterialColorProperty";
-                before = SceneCommands.Json(target.Material.GetColor(name));
+                object value = kind == "color" ? (object)ColorValue(args["value"]) : SceneCommands.Number(args["value"]);
+                Invoke(target, "SetMaterial" + Suffix(kind), property, value, true);
             }
-            else if (kind == "float")
+            else if (method == "me.import_texture" && kind == "texture")
             {
-                value = SceneCommands.Number(args["value"]);
-                setter = "SetMaterialFloatProperty";
-                before = new JValue(target.Material.GetFloat(name));
+                var path = Path.GetFullPath((string)args["path"] ?? "");
+                var extension = Path.GetExtension(path).ToLowerInvariant();
+                if (extension != ".png" && extension != ".jpg" && extension != ".jpeg")
+                    throw new ArgumentException("Texture imports currently accept PNG and JPEG files.");
+                var file = new FileInfo(path);
+                if (!file.Exists || file.Length == 0 || file.Length > 64 * 1024 * 1024)
+                    throw new ArgumentException("Texture file is missing, empty or exceeds 64 MiB.");
+                // The provider owns texture lifetime and the bytes saved into cards/scenes.
+                Invoke(target, "SetMaterialTextureFromFile", property, path, true);
+                if (Invoke(target, "GetMaterialTexture", property) == null || target.Material.GetTexture(name) == null)
+                    throw new InvalidOperationException("ME did not register and apply the imported texture.");
             }
-            else throw new ArgumentException("This bridge version supports color and float writes.");
-            var controller = SceneController();
-            var setMethod = controller.GetType().GetMethods().Single(m => m.Name == setter && m.GetParameters().Length == 5);
-            setMethod.Invoke(controller, new[] { (object)target.ObjectId, target.Material, property, value, true });
-            var after = kind == "color" ? (JToken)SceneCommands.Json(target.Material.GetColor(name))
-                : new JValue(target.Material.GetFloat(name));
-            return new JObject { ["property"] = name, ["before"] = before, ["after"] = after,
-                ["persistence"] = "material_editor_scene", ["scope"] = "object_and_material_name",
-                ["objectId"] = target.ObjectId, ["material"] = target.Material.name };
+            else throw new ArgumentException("Unsupported material operation.");
+            return new JObject { ["property"] = name, ["before"] = before,
+                ["after"] = Value(target.Material, name, kind), ["persistence"] = "material_editor",
+                ["scope"] = target.Scope, ["partSlot"] = target.PartSlot,
+                ["objectId"] = target.ObjectId, ["material"] = target.Material.name,
+                ["matchingMaterials"] = MatchingMaterials(target) };
         }
+
+        // Restore ME's saved value, or remove the override when none existed.
+        internal Action PrepareUndo(JObject args)
+        {
+            var target = Resolve(args);
+            var name = (string)args["property"];
+            var kind = (string)args["kind"] ?? "float";
+            if (kind != "color" && kind != "float") throw new ArgumentException("Batch ME edits support Float/Color only; checkpoint before texture imports.");
+            ValidateProperty(target, name, kind);
+            if (kind == "color") ColorValue(args["value"]); else SceneCommands.Number(args["value"]);
+            var property = name.Substring(1);
+            var saved = Invoke(target, "GetMaterial" + (kind == "color" ? "Color" : "Float") + "PropertyValue", property);
+            return () => {
+                if (target.Material == null || target.Renderer == null) throw new InvalidOperationException("Undo target was destroyed.");
+                if (saved == null) Invoke(target, "RemoveMaterial" + Suffix(kind), property, null, true);
+                else Invoke(target, "SetMaterial" + Suffix(kind), property, saved, true);
+            };
+        }
+
+        private static string Suffix(string kind) => kind == "texture" ? "Texture" : kind == "color" ? "ColorProperty" : "FloatProperty";
 
         internal Target Resolve(JObject args)
         {
             var id = (int)args["objectId"];
             var owner = _plugin.Scene.GetObject(id);
-            if (!(owner is OCIItem)) throw new NotSupportedException("Character material scopes are not implemented yet.");
             var root = SceneCommands.Root(owner);
-            var rendererId = (int)args["rendererId"];
-            var renderer = root.GetComponentsInChildren<Renderer>(true).FirstOrDefault(r => r.GetInstanceID() == rendererId);
+            if (root == null) throw new ArgumentException("Object has no editable material root.");
+            var renderer = root.GetComponentsInChildren<Renderer>(true)
+                .FirstOrDefault(r => r.GetInstanceID() == (int)args["rendererId"]);
             if (renderer == null) throw new ArgumentException("Renderer handle is stale or belongs to another object.");
             var materials = renderer.materials;
             var slot = (int?)args["slot"] ?? 0;
             if (slot < 0 || slot >= materials.Length || materials[slot] == null) throw new ArgumentOutOfRangeException("slot");
-            var material = materials[slot];
-            if (args["materialId"] != null && (int)args["materialId"] != material.GetInstanceID())
+            var target = MakeTarget(id, owner, renderer, materials[slot], slot);
+            if (args["materialId"] != null && (int)args["materialId"] != target.Material.GetInstanceID())
                 throw new InvalidOperationException("Material identity changed; inspect it again.");
-            return new Target { ObjectId = id, Root = root, Renderer = renderer, Slot = slot, Material = material };
+            return target;
+        }
+
+        private Target MakeTarget(int id, ObjectCtrlInfo owner, Renderer renderer, Material material, int slot)
+        {
+            var target = new Target { ObjectId = id, Root = SceneCommands.Root(owner), Renderer = renderer, Material = material, Slot = slot };
+            var character = owner as OCIChar;
+            if (character == null)
+                target.Controller = Chainloader.ManagerObject.GetComponentInChildren(RequiredType("KK_Plugins.MaterialEditor.SceneController"));
+            else
+            {
+                var cha = character.charInfo;
+                target.Controller = cha.GetComponent(RequiredType("KK_Plugins.MaterialEditor.MaterialEditorCharaController"));
+                target.Scope = "Character";
+                // Part roots must win over the enclosing character root, including inactive parts.
+                if (!FindPart(target, cha.objAccessory, "Accessory") && !FindPart(target, cha.objClothes, "Clothing"))
+                    FindPart(target, cha.objHair, "Hair");
+            }
+            if (target.Controller == null) throw new InvalidOperationException("Material Editor controller is not ready.");
+            return target;
+        }
+
+        private static bool FindPart(Target target, GameObject[] parts, string scope)
+        {
+            for (var i = 0; i < parts.Length; i++)
+                if (parts[i] != null && target.Renderer.transform.IsChildOf(parts[i].transform))
+                { target.Root = parts[i]; target.PartSlot = i; target.Scope = scope; return true; }
+            return false;
         }
 
         private JArray List(int id)
         {
-            var root = SceneCommands.Root(_plugin.Scene.GetObject(id));
-            if (root == null) return new JArray();
+            var owner = _plugin.Scene.GetObject(id);
+            var root = SceneCommands.Root(owner);
             var result = new JArray();
+            if (root == null) return result;
             foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
             {
                 var materials = renderer.materials;
                 for (var slot = 0; slot < materials.Length; slot++)
                 {
-                    var material = materials[slot];
-                    if (material == null) continue;
+                    if (materials[slot] == null) continue;
+                    var target = MakeTarget(id, owner, renderer, materials[slot], slot);
                     result.Add(new JObject { ["objectId"] = id, ["rendererId"] = renderer.GetInstanceID(),
-                        ["renderer"] = renderer.name, ["slot"] = slot, ["materialId"] = material.GetInstanceID(),
-                        ["name"] = material.name, ["shader"] = material.shader.name });
+                        ["renderer"] = renderer.name, ["slot"] = slot, ["materialId"] = materials[slot].GetInstanceID(),
+                        ["name"] = materials[slot].name, ["shader"] = materials[slot].shader.name,
+                        ["scope"] = target.Scope, ["partSlot"] = target.PartSlot });
                 }
             }
             return result;
         }
 
-        private static JObject Inspect(Target target)
+        private static object Invoke(Target target, string method, string property, object value = null, bool write = false)
         {
-            var material = target.Material;
+            var args = new List<object>();
+            if (target.Scope == "Item") args.Add(target.ObjectId);
+            else
+            {
+                args.Add(target.PartSlot);
+                args.Add(Enum.Parse(target.Controller.GetType().GetNestedType("ObjectType"), target.Scope));
+            }
+            args.Add(target.Material);
+            args.Add(property);
+            if (method.StartsWith("Set", StringComparison.Ordinal)) args.Add(value);
+            if (target.Scope != "Item") args.Add(target.Root);
+            // Older ME calls this flag setTexInUpdate; false selects its existing synchronous import path.
+            if (write) args.Add(method != "SetMaterialTextureFromFile");
+            var api = target.Controller.GetType().GetMethods().SingleOrDefault(m => m.Name == method && m.GetParameters().Length == args.Count);
+            if (api == null) throw new NotSupportedException("Installed ME does not expose " + method + ".");
+            return api.Invoke(target.Controller, args.ToArray());
+        }
+
+        private static void ValidateProperty(Target target, string name, string kind)
+        {
+            if (string.IsNullOrEmpty(name) || !name.StartsWith("_", StringComparison.Ordinal) || !target.Material.HasProperty(name))
+                throw new ArgumentException("Use an existing shader property name including its leading underscore.");
+            var property = Properties(target.Material).FirstOrDefault(p => (string)p["name"] == name);
+            if (property == null) throw new ArgumentException("Property is not described by the installed shader/ME metadata.");
+            var actual = (string)property["kind"];
+            if (actual != kind && !(kind == "float" && actual == "range"))
+                throw new ArgumentException("Property type is " + actual + ", not " + kind + ".");
+        }
+
+        private static JObject Inspect(Target target) => new JObject {
+            ["objectId"] = target.ObjectId, ["rendererId"] = target.Renderer.GetInstanceID(),
+            ["slot"] = target.Slot, ["materialId"] = target.Material.GetInstanceID(), ["name"] = target.Material.name,
+            ["shader"] = target.Material.shader.name, ["scope"] = target.Scope, ["partSlot"] = target.PartSlot,
+            ["properties"] = Properties(target.Material), ["matchingMaterials"] = MatchingMaterials(target) };
+
+        private static JArray Properties(Material material)
+        {
             var properties = new JArray();
 #if KKS
             var shader = material.shader;
             for (var i = 0; i < shader.GetPropertyCount(); i++)
             {
                 var name = shader.GetPropertyName(i);
-                var kind = shader.GetPropertyType(i).ToString();
-                JToken value = null;
-                if (kind == "Color") value = SceneCommands.Json(material.GetColor(name));
-                else if (kind == "Float" || kind == "Range") value = new JValue(material.GetFloat(name));
-                else if (kind == "Vector") { var v = material.GetVector(name); value = new JArray(v.x, v.y, v.z, v.w); }
-                else if (kind == "Texture")
-                {
-                    var texture = material.GetTexture(name);
-                    value = texture != null ? new JObject { ["name"] = texture.name,
-                        ["width"] = texture.width, ["height"] = texture.height } : null;
-                }
-                properties.Add(new JObject { ["name"] = name, ["kind"] = kind.ToLowerInvariant(), ["value"] = value });
+                var kind = shader.GetPropertyType(i).ToString().ToLowerInvariant();
+                properties.Add(new JObject { ["name"] = name, ["kind"] = kind, ["value"] = Value(material, name, kind) });
             }
 #else
-            foreach (var name in new[] { "_Color", "_Color2", "_Color3", "_Glossiness", "_Metallic" })
-                if (material.HasProperty(name)) properties.Add(new JObject { ["name"] = name,
-                    ["kind"] = name.StartsWith("_Color") ? "color" : "float" });
+            // Unity 5.6 cannot enumerate shader properties. Use ME's metadata, not guessed names.
+            var metadata = (IDictionary)RequiredType("MaterialEditorAPI.MaterialEditorPluginBase").GetField("XMLShaderProperties").GetValue(null);
+            var names = new HashSet<string>();
+            foreach (var key in new[] { material.shader.name, "default" })
+            {
+                if (!metadata.Contains(key)) continue;
+                foreach (DictionaryEntry entry in (IDictionary)metadata[key])
+                {
+                    var data = entry.Value;
+                    var name = "_" + (string)data.GetType().GetField("Name").GetValue(data);
+                    if (!material.HasProperty(name) || !names.Add(name)) continue;
+                    var kind = data.GetType().GetField("Type").GetValue(data).ToString().ToLowerInvariant();
+                    properties.Add(new JObject { ["name"] = name, ["kind"] = kind, ["value"] = Value(material, name, kind) });
+                }
+            }
 #endif
-            return new JObject { ["objectId"] = target.ObjectId, ["rendererId"] = target.Renderer.GetInstanceID(),
-                ["slot"] = target.Slot, ["materialId"] = material.GetInstanceID(), ["name"] = material.name,
-                ["shader"] = material.shader.name, ["properties"] = properties };
+            return properties;
         }
 
-        private Component SceneController()
+        private static JToken Value(Material material, string name, string kind)
         {
-            if (_controller != null) return _controller;
-            var type = FindType("KK_Plugins.MaterialEditor.SceneController");
-            if (type == null) throw new NotSupportedException("Material Editor is not installed.");
-            _controller = Chainloader.ManagerObject.GetComponentInChildren(type);
-            if (_controller == null) throw new InvalidOperationException("Material Editor's scene controller is not ready.");
-            return _controller;
+            if (kind == "color") return SceneCommands.Json(material.GetColor(name));
+            if (kind == "float" || kind == "range") return new JValue(material.GetFloat(name));
+            if (kind == "vector") { var v = material.GetVector(name); return new JArray(v.x, v.y, v.z, v.w); }
+            if (kind != "texture") return null;
+            var texture = material.GetTexture(name);
+            return texture == null ? null : new JObject { ["name"] = texture.name, ["width"] = texture.width,
+                ["height"] = texture.height, ["instanceId"] = texture.GetInstanceID() };
         }
 
+        private static string Formatted(Material material) => material.name.Replace(" (Instance)", "").Trim();
+        private static JArray MatchingMaterials(Target target) => new JArray(target.Root.GetComponentsInChildren<Renderer>(true)
+            .Where(r => r.materials.Any(m => m != null && Formatted(m) == Formatted(target.Material)))
+            .Select(r => new JObject { ["rendererId"] = r.GetInstanceID(), ["renderer"] = r.name }));
+
+        internal static Color ColorValue(JToken value)
+        {
+            var rgba = value as JArray;
+            if (rgba == null || rgba.Count != 4) throw new ArgumentException("Color requires four RGBA values.");
+            return new Color(SceneCommands.Number(rgba[0]), SceneCommands.Number(rgba[1]), SceneCommands.Number(rgba[2]), SceneCommands.Number(rgba[3]));
+        }
+
+        private static Type RequiredType(string name) => FindType(name) ?? throw new NotSupportedException("Required provider type is unavailable: " + name);
         internal static Type FindType(string name) => AppDomain.CurrentDomain.GetAssemblies()
             .Select(assembly => assembly.GetType(name, false)).FirstOrDefault(type => type != null);
     }

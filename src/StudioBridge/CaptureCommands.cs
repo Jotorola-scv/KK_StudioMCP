@@ -12,6 +12,7 @@ namespace StudioMcp.Bridge
     {
         private readonly Plugin _plugin;
         private readonly Dictionary<string, JObject> _jobs = new Dictionary<string, JObject>();
+        private readonly Queue<string> _jobOrder = new Queue<string>();
         internal bool Busy { get; private set; }
         internal bool Available => MaterialCommands.FindType("Screencap.ScreenshotManager") != null;
         internal CaptureCommands(Plugin plugin) { _plugin = plugin; }
@@ -39,6 +40,8 @@ namespace StudioMcp.Bridge
             var record = new JObject { ["jobId"] = id, ["state"] = "waiting",
                 ["sceneSession"] = _plugin.Session, ["width"] = width, ["height"] = height };
             _jobs.Add(id, record);
+            _jobOrder.Enqueue(id);
+            while (_jobOrder.Count > 8) _jobs.Remove(_jobOrder.Dequeue());
             Busy = true;
             _plugin.StartCoroutine(Capture(record, width, height, supersampling));
             return new JObject { ["jobId"] = id, ["state"] = "waiting" };
@@ -50,12 +53,13 @@ namespace StudioMcp.Bridge
             RenderTexture render = null;
             RenderTexture preview = null;
             var previous = RenderTexture.active;
-            var api = MaterialCommands.FindType("Screencap.ScreenshotManager");
-            var pre = api.GetMethod("FirePreCapture", BindingFlags.Public | BindingFlags.Static);
-            var post = api.GetMethod("FirePostCapture", BindingFlags.Public | BindingFlags.Static);
+            MethodInfo post = null;
             var watch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
+                var api = MaterialCommands.FindType("Screencap.ScreenshotManager");
+                var pre = api.GetMethod("FirePreCapture", BindingFlags.Public | BindingFlags.Static);
+                post = api.GetMethod("FirePostCapture", BindingFlags.Public | BindingFlags.Static);
                 if ((string)record["sceneSession"] != _plugin.Session)
                     throw new InvalidOperationException("Scene changed before capture.");
                 record["state"] = "running";
@@ -92,7 +96,9 @@ namespace StudioMcp.Bridge
                 RenderTexture.active = previous;
                 if (preview != null) RenderTexture.ReleaseTemporary(preview);
                 if (render != null) RenderTexture.ReleaseTemporary(render);
-                try { post.Invoke(null, null); } finally { Busy = false; }
+                try { post?.Invoke(null, null); }
+                catch (Exception error) { record["state"] = "failed"; record["error"] = error.GetBaseException().Message; }
+                finally { Busy = false; }
             }
         }
 

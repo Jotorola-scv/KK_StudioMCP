@@ -13,9 +13,11 @@ It consumes installed plugins' public APIs; it does not patch Material Editor so
 - The agent inspected a red sphere, changed it to blue, tightened the camera, and inspected the next
   returned MCP image. The integration verifier also checked the two rendered color regions.
 
-The broader goal is **not complete**. Character-part material scopes, texture import, render settings,
-high-resolution capture verification, batch recovery, save/load persistence verification, and KK
-runtime verification remain to be implemented or verified.
+- KKS extended verification passed: Character/Hair/Clothing/Accessory scopes; item and clothing
+  texture import; Float/Color and texture persistence after scene reload; batch prevalidation and
+  undo; native render settings; checkpoint restore; stale-session rejection; and 3840x2160 Screencap.
+
+KK builds successfully; its legacy Mono runtime verification is in progress.
 
 All interaction and verification uses PowerShell, MCP, game APIs and exported image files.
 No mouse/keyboard automation, computer-use tools, or desktop capture is used.
