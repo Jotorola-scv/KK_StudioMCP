@@ -112,6 +112,13 @@ public static class StudioTools
     public static Task<JsonObject> SetVisible(BridgeClient bridge, string sceneSession, int objectId, bool visible)
         => bridge.Call("object.set_visible", Args(new { sceneSession, objectId, visible }));
 
+    [McpServerTool, Description("Read the Studio camera's native AmplifyColor tonemapper, exposure, linear white point and LUT blend.")]
+    public static Task<JsonObject> TonemapGet(BridgeClient bridge) => bridge.Call("tonemap.get");
+
+    [McpServerTool, Description("Set the Studio camera's native AmplifyColor tonemapper (Disabled, Photographic, FilmicHable, FilmicACES), exposure (0.05-16) and linear white point (0.5-64). Saved in the scene PNG; loading a scene without saved values restores the camera defaults. No extra postprocessing stack.")]
+    public static Task<JsonObject> TonemapSet(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement values)
+        => bridge.Call("tonemap.set", Args(new { sceneSession, values }));
+
     [McpServerTool, Description("Read bounded actual camera, light and reflection-probe resources, including color space and probe texture availability. Read only.")]
     public static Task<JsonObject> RenderDiagnostics(BridgeClient bridge) => bridge.Call("render.diagnostics");
 

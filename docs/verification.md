@@ -72,3 +72,20 @@ The later Rainline additions are described separately in `rainline-authoring.md`
   build output and showcase evidence are excluded from the source upload.
 
 Successful KK compilation is not new runtime qualification of the later KKS scene-authoring tools.
+
+## Tonemapping and sky reload fix — 2026-10-27
+
+Exercised through the stdio MCP host on a second KKS installation (Material Editor 5.0, KKSAPI 1.45.1,
+Screencap 21.1.3) with the four Rainline weather cards:
+
+- `tonemap_get` reported the camera default (Disabled, exposure 1.0, white point 11.2). `tonemap_set`
+  switched to FilmicACES, FilmicHable and Photographic; each change was confirmed by a capture. The
+  values were saved in new native scene PNGs and restored, with `owned` set, after cold reloads.
+- Before the fix, native-sky cards loaded directly after custom-sky cards (Sunny Day after Rainy Day,
+  Moonlit Night after Rainy Night) rendered with the earlier scene's skybox material. After it,
+  `native_sky_get` reported each card's own Funly material and captures matched fresh-load references.
+- Four re-authored cards were reloaded cold with no differences in tonemapping, native render settings,
+  native effects, light overrides or tree visibility; all three probe controllers reached Ready.
+
+The MCP host and KKS bridge compiled with zero warnings/errors. The KK target was not compiled or run
+for this change.
