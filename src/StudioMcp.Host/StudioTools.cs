@@ -11,6 +11,26 @@ public static class StudioTools
     [McpServerTool, Description("Inspect the Studio connection, scene session, installed providers and write permissions.")]
     public static Task<JsonObject> StudioStatus(BridgeClient bridge) => bridge.Call("status");
 
+    [McpServerTool, Description("Search installed Studio items by display name, returning authoritative runtime catalog IDs and native light IDs.")]
+    public static Task<JsonObject> CatalogSearch(BridgeClient bridge, string query, int limit = 50)
+        => bridge.Call("catalog.search", Args(new { query, limit }));
+
+    [McpServerTool, Description("Create a saved native Studio light using an ID from catalog_search. Does not replace existing lights.")]
+    public static Task<JsonObject> AddLight(BridgeClient bridge, string sceneSession, int lightId, string name,
+        float[]? position = null, float[]? rotation = null)
+        => bridge.Call("scene.add_light", Args(new { sceneSession, lightId, name, position, rotation }));
+
+    [McpServerTool, Description("Set a Studio light's saved color, intensity, range, cone, enabled and shadow flags using its native setters.")]
+    public static Task<JsonObject> LightSet(BridgeClient bridge, string sceneSession, int objectId,
+        float[]? color = null, float? intensity = null, float? range = null, float? spotAngle = null,
+        bool? enabled = null, bool? shadows = null, int? cullingMask = null, int? renderMode = null)
+        => bridge.Call("light.set", Args(new { sceneSession, objectId, color, intensity, range, spotAngle, enabled, shadows, cullingMask, renderMode }));
+
+    [McpServerTool, Description("Change to an installed ME-registered shader through ME's saved API. Inspect fresh material handles afterward. Checkpoint before changing shaders.")]
+    public static Task<JsonObject> MaterialSetShader(BridgeClient bridge, string sceneSession, int objectId,
+        int rendererId, string shader, int slot = 0)
+        => bridge.Call("me.shader", Args(new { sceneSession, objectId, rendererId, shader, slot }));
+
     [McpServerTool, Description("Read Studio-owned objects, transforms, bounds and the current camera. Paginated; not a dump of hidden Unity objects.")]
     public static Task<JsonObject> SceneSnapshot(BridgeClient bridge, int offset = 0, int limit = 50)
         => bridge.Call("scene.snapshot", new JsonObject { ["offset"] = offset, ["limit"] = limit });
@@ -30,8 +50,8 @@ public static class StudioTools
 
     [McpServerTool, Description("Set the Studio camera orbit pivot, Euler rotation and field of view. Pivot is not the eye position.")]
     public static Task<JsonObject> CameraSet(BridgeClient bridge, string sceneSession,
-        float[]? pivot = null, float[]? rotation = null, float? fov = null)
-        => bridge.Call("camera.set", Args(new { sceneSession, pivot, rotation, fov }));
+        float[]? pivot = null, float[]? rotation = null, float? fov = null, float[]? distance = null)
+        => bridge.Call("camera.set", Args(new { sceneSession, pivot, rotation, fov, distance }));
 
     [McpServerTool, Description("List renderer handles, material slots and shaders for a Studio object. Handles are valid only for the current scene.")]
     public static Task<JsonObject> MaterialsList(BridgeClient bridge, int objectId)
@@ -40,6 +60,11 @@ public static class StudioTools
     [McpServerTool, Description("Inspect the selected material's shader properties and current values before editing.")]
     public static Task<JsonObject> MaterialInspect(BridgeClient bridge, int objectId, int rendererId, int slot = 0)
         => bridge.Call("me.inspect", Args(new { objectId, rendererId, slot }));
+
+    [McpServerTool, Description("Set a texture's UV scale/offset through ME persistence, independently for each texture. Values are bounded finite vec2s.")]
+    public static Task<JsonObject> MaterialTextureTransform(BridgeClient bridge, string sceneSession, int objectId,
+        int rendererId, string property, float[]? scale = null, float[]? offset = null, int slot = 0)
+        => bridge.Call("me.texture_transform", Args(new { sceneSession, objectId, rendererId, property, scale, offset, slot }));
 
     [McpServerTool, Description("Set a color (RGBA array) or float through Material Editor's persistence API. ME applies to all same-name materials in the object.")]
     public static Task<JsonObject> MaterialSet(BridgeClient bridge, string sceneSession, int objectId,
@@ -64,6 +89,32 @@ public static class StudioTools
     [McpServerTool, Description("Read supported native Unity ambient, fog and quality settings. These are runtime settings; graphics mods may override them.")]
     public static Task<JsonObject> RenderGet(BridgeClient bridge) => bridge.Call("render.get");
 
+    [McpServerTool, Description("Read native Studio postprocessing values and actual camera components. No PPE or external postprocessing stack is added.")]
+    public static Task<JsonObject> NativeEffectsGet(BridgeClient bridge) => bridge.Call("native_effects.get");
+
+    [McpServerTool, Description("Set whitelisted native Studio effects using native_effects_get values. Writes native SceneInfo and refreshes the existing effect controllers; saves in scene PNGs.")]
+    public static Task<JsonObject> NativeEffectsSet(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement values)
+        => bridge.Call("native_effects.set", Args(new { sceneSession, values }));
+
+    [McpServerTool, Description("List original KKS sky presets and read the active native sky. Does not add a sky filter item.")]
+    public static Task<JsonObject> NativeSkyGet(BridgeClient bridge) => bridge.Call("native_sky.get");
+
+    [McpServerTool, Description("Select an original KKS sky preset by ID from native_sky_get. Saved through native Studio SceneInfo.")]
+    public static Task<JsonObject> NativeSkySet(BridgeClient bridge, string sceneSession, int pattern, bool enabled = true)
+        => bridge.Call("native_sky.set", Args(new { sceneSession, pattern, enabled }));
+
+    [McpServerTool, Description("Bind an inspected Studio item's native Skybox material to RenderSettings. Disables the built-in sky driver while bound, saves the item reference in the scene PNG, restores the native driver on native_sky_set or scene clear. No postprocessing/filter item.")]
+    public static Task<JsonObject> SkyboxBind(BridgeClient bridge, string sceneSession, int objectId, int rendererId,
+        float exposure = 1, float rotation = 0, int slot = 0)
+        => bridge.Call("skybox.bind", Args(new { sceneSession, objectId, rendererId, slot, exposure, rotation }));
+
+    [McpServerTool, Description("Set a Studio object's native saved visibility, including its children. Useful for separately authored weather particle objects.")]
+    public static Task<JsonObject> SetVisible(BridgeClient bridge, string sceneSession, int objectId, bool visible)
+        => bridge.Call("object.set_visible", Args(new { sceneSession, objectId, visible }));
+
+    [McpServerTool, Description("Read bounded actual camera, light and reflection-probe resources, including color space and probe texture availability. Read only.")]
+    public static Task<JsonObject> RenderDiagnostics(BridgeClient bridge) => bridge.Call("render.diagnostics");
+
     [McpServerTool, Description("Patch native render settings using keys returned by render_get. Checkpoints also store these in a sidecar. Does not edit arbitrary graphics-mod internals.")]
     public static Task<JsonObject> RenderSet(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement values)
         => bridge.Call("render.set", Args(new { sceneSession, values }));
@@ -86,9 +137,9 @@ public static class StudioTools
 
     [McpServerTool, Description("Render through Screencap, return an image preview plus the full PNG path. Waits for actual capture completion; does not capture the desktop.")]
     public static async Task<CallToolResult> Capture(BridgeClient bridge, string sceneSession,
-        int width = 640, int height = 360, int supersampling = 1)
+        int width = 640, int height = 360, int supersampling = 1, bool withDepth = false)
     {
-        var started = await bridge.Call("capture.start", Args(new { sceneSession, width, height, supersampling }));
+        var started = await bridge.Call("capture.start", Args(new { sceneSession, width, height, supersampling, withDepth }));
         var jobId = started["result"]!["jobId"]!.GetValue<string>();
         var deadline = DateTime.UtcNow.AddMinutes(2);
         while (DateTime.UtcNow < deadline)

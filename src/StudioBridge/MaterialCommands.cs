@@ -32,6 +32,51 @@ namespace StudioMcp.Bridge
             if (method == "me.list") return List((int)args["objectId"]);
             var target = Resolve(args);
             if (method == "me.inspect") return Inspect(target);
+            if (method == "me.texture_transform")
+            {
+                var textureName = (string)args["property"];
+                ValidateProperty(target, textureName, "texture");
+                var transforms = new Dictionary<string, Vector2>();
+                foreach (var key in new[] { "scale", "offset" })
+                {
+                    if (args[key] == null) continue;
+                    var a = args[key] as JArray;
+                    if (a == null || a.Count != 2) throw new ArgumentException(key + " requires two numbers.");
+                    var v = new Vector2(SceneCommands.Number(a[0]), SceneCommands.Number(a[1]));
+                    if (Math.Abs(v.x) > 10000 || Math.Abs(v.y) > 10000) throw new ArgumentOutOfRangeException(key);
+                    transforms.Add(key, v);
+                }
+                if (transforms.Count == 0) throw new ArgumentException("A texture scale or offset is required.");
+                foreach (var p in transforms)
+                    Invoke(target, p.Key == "scale" ? "SetMaterialTextureScale" : "SetMaterialTextureOffset", textureName.Substring(1), p.Value, true);
+                var scale = target.Material.GetTextureScale(textureName);
+                var offset = target.Material.GetTextureOffset(textureName);
+                return new JObject { ["property"] = textureName, ["scale"] = new JArray(scale.x, scale.y),
+                    ["offset"] = new JArray(offset.x, offset.y), ["persistence"] = "material_editor" };
+            }
+            if (method == "me.shader")
+            {
+                var shaderName = (string)args["shader"];
+                if (string.IsNullOrEmpty(shaderName)) throw new ArgumentException("shader is required.");
+                var metadata = (IDictionary)RequiredType("MaterialEditorAPI.MaterialEditorPluginBase")
+                    .GetField("XMLShaderProperties").GetValue(null);
+                if (!metadata.Contains(shaderName)) throw new ArgumentException("Shader is not registered in Material Editor.");
+                var beforeShader = target.Material.shader.name;
+                var parameters = new List<object>();
+                if (target.Scope == "Item") parameters.Add(target.ObjectId);
+                else { parameters.Add(target.PartSlot); parameters.Add(Enum.Parse(target.Controller.GetType().GetNestedType("ObjectType"), target.Scope)); }
+                parameters.Add(target.Material); parameters.Add(shaderName);
+                if (target.Scope != "Item") parameters.Add(target.Root);
+                parameters.Add(true);
+                var api = target.Controller.GetType().GetMethods().SingleOrDefault(m => m.Name == "SetMaterialShader" && m.GetParameters().Length == parameters.Count);
+                if (api == null) throw new NotSupportedException("ME SetMaterialShader is unavailable.");
+                api.Invoke(target.Controller, parameters.ToArray());
+                var updated = Resolve(args);
+                if (updated.Material.shader.name != shaderName) throw new InvalidOperationException("ME did not apply the requested shader.");
+                return new JObject { ["before"] = beforeShader, ["after"] = shaderName,
+                    ["persistence"] = "material_editor", ["reinspectRequired"] = true,
+                    ["matchingMaterials"] = MatchingMaterials(updated) };
+            }
             var name = (string)args["property"];
             var kind = (string)args["kind"] ?? "float";
             ValidateProperty(target, name, kind);
@@ -145,7 +190,7 @@ namespace StudioMcp.Bridge
                     if (materials[slot] == null) continue;
                     var target = MakeTarget(id, owner, renderer, materials[slot], slot);
                     result.Add(new JObject { ["objectId"] = id, ["rendererId"] = renderer.GetInstanceID(),
-                        ["renderer"] = renderer.name, ["slot"] = slot, ["materialId"] = materials[slot].GetInstanceID(),
+                        ["renderer"] = renderer.name, ["layer"] = renderer.gameObject.layer, ["slot"] = slot, ["materialId"] = materials[slot].GetInstanceID(),
                         ["name"] = materials[slot].name, ["shader"] = materials[slot].shader.name,
                         ["scope"] = target.Scope, ["partSlot"] = target.PartSlot });
                 }

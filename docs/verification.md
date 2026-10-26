@@ -54,3 +54,21 @@ No long soak test, forced out-of-memory test, arbitrary graphics-plugin integrat
 coverage. Exception rollback is implemented but was not tested by injecting an artificial exception
 inside a native setter; rejection-before-write and successful undo were exercised. Neither VR nor
 multi-client concurrent authoring was validated. See the capability boundaries before using real scenes.
+
+## Scene-authoring publication checks
+
+The later Rainline additions are described separately in `rainline-authoring.md` and
+`rainline-weather.md`. Before publishing the combined source:
+
+- The MCP host and both current bridge targets compiled with zero warnings/errors. The KK reference
+  path was corrected to its actual `KK_BepisPlugins/ExtensibleSaveFormat.dll` filename.
+- A live, read-only KKS connection reported Studio, ME, Screencap and paired depth ready. The actual
+  stdio MCP server exposed all 31 tool schemas. The current scene was not edited for publication.
+- Existing SunnyDay, RainyDay, MoonlitNight and RainyNight reload audits each reported no differing
+  entries, no sidecar dependency, and ready probe capture resources.
+- Batch undo now restores the previous opt-in environment-persistence flag as well as the values.
+  This small publication correction was compiled and reviewed; it was not given a new runtime test.
+- Source was checked for credential patterns. Local credentials, game assemblies, research clones,
+  build output and showcase evidence are excluded from the source upload.
+
+Successful KK compilation is not new runtime qualification of the later KKS scene-authoring tools.

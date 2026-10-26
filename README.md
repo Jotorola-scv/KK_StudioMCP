@@ -23,6 +23,24 @@ It consumes installed plugins' public APIs; it does not patch Material Editor so
 All interaction and verification uses PowerShell, MCP, game APIs and exported image files.
 No mouse/keyboard automation, computer-use tools, or desktop capture is used.
 
+## Scene authoring extensions
+
+The Rainline KKS showcase adds native light creation and light-layer control, saved ME shader
+selection, camera orbit distance, reflection/SH diagnostics, and paired color/depth export through
+the installed OfflineReShade-capable Screencap. Opt-in environment settings and light overrides
+are embedded in the native scene PNG through KKAPI/ExtendedSave; a checkpoint sidecar is no longer
+the only copy. Loading a scene requires this bridge to restore those extra settings, but does not
+require an MCP host connection or write-enabled server.
+
+See [the scene authoring change record](docs/rainline-authoring.md) for dependencies, persistence
+boundaries and the KKS-only qualification of these new features. The previous KK verification
+above does not qualify these later additions on Unity 5.6.
+
+The four-weather Rainline extension adds native Studio AO, bloom, fog, DOF and character-light
+controls, native sky selection, reloadable panoramic sky binding, saved texture tiling and object
+visibility. It uses the existing game effect components, not PPE, a filter item or a replacement
+postprocessing stack. See [the weather authoring record](docs/rainline-weather.md).
+
 ## Structure
 
 - `src/StudioBridge`: .NET Framework BepInEx bridge. All Unity access executes on the main thread.

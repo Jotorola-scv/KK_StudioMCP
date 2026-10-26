@@ -36,7 +36,11 @@ namespace StudioMcp.Bridge
                 {
                     RenderCommands.Validate((JObject)values["values"]);
                     var before = _plugin.Rendering.State();
-                    restore.Add(() => _plugin.Rendering.Apply(before));
+                    var ownedSettings = _plugin.Rendering.OwnsSettings;
+                    restore.Add(() => {
+                        _plugin.Rendering.Apply(before);
+                        _plugin.Rendering.OwnsSettings = ownedSettings;
+                    });
                 }
                 else restore.Add(_plugin.Scene.PrepareUndo(op, values));
             }

@@ -10,6 +10,7 @@ namespace StudioMcp.Bridge
     internal sealed class SceneCommands
     {
         private readonly Plugin _plugin;
+        internal readonly System.Collections.Generic.Dictionary<int, JObject> LightOverrides = new System.Collections.Generic.Dictionary<int, JObject>();
         internal SceneCommands(Plugin plugin) { _plugin = plugin; }
 
         internal JToken Execute(string method, JObject args)
@@ -17,6 +18,55 @@ namespace StudioMcp.Bridge
             if (Studio.Studio.Instance == null) throw new InvalidOperationException("Studio is not ready.");
             switch (method)
             {
+                case "object.set_visible":
+                    if (args["visible"].Type != JTokenType.Boolean) throw new ArgumentException("visible requires a boolean.");
+                    var visibleTarget = GetObject((int)args["objectId"]);
+                    visibleTarget.treeNodeObject.SetVisible((bool)args["visible"]);
+                    return Describe(visibleTarget);
+                case "catalog.search":
+                    var query = ((string)args["query"] ?? "").Trim();
+                    var matches = new JArray();
+                    var catalogLimit = Math.Max(1, Math.Min(200, (int?)args["limit"] ?? 50));
+                    foreach (var group in Info.Instance.dicItemLoadInfo)
+                        foreach (var category in group.Value)
+                            foreach (var entry in category.Value)
+                                if (entry.Value.name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 && matches.Count < catalogLimit)
+                                    matches.Add(new JObject { ["group"] = group.Key, ["category"] = category.Key,
+                                        ["itemId"] = entry.Key, ["name"] = entry.Value.name,
+                                        ["bundle"] = entry.Value.bundlePath, ["asset"] = entry.Value.fileName });
+                    return new JObject { ["items"] = matches,
+                        ["lights"] = new JArray(Info.Instance.dicLightLoadInfo.Select(p => new JObject {
+                            ["lightId"] = p.Key, ["name"] = p.Value.name })) };
+                case "scene.add_light":
+                    ValidateTransform(args);
+                    var lightId = (int)args["lightId"];
+                    if (!Info.Instance.dicLightLoadInfo.ContainsKey(lightId)) throw new ArgumentException("Unknown light catalog ID.");
+                    var light = AddObjectLight.Add(lightId);
+                    if (light == null) throw new InvalidOperationException("Studio did not create the light.");
+                    if (args["name"] != null) light.treeNodeObject.textName = (string)args["name"];
+                    ApplyTransform(light, args);
+                    return Describe(light);
+                case "light.set":
+                    var lamp = GetObject((int)args["objectId"]) as OCILight;
+                    if (lamp == null) throw new ArgumentException("A Studio light object is required.");
+                    if (args["color"] != null) MaterialCommands.ColorValue(args["color"]);
+                    foreach (var key in new[] { "intensity", "range", "spotAngle" })
+                        if (args[key] != null && (Number(args[key]) < 0 || Number(args[key]) > (key == "intensity" ? 16 : 200)))
+                            throw new ArgumentOutOfRangeException(key);
+                    foreach (var key in new[] { "enabled", "shadows" })
+                        if (args[key] != null && args[key].Type != JTokenType.Boolean) throw new ArgumentException(key + " requires a boolean.");
+                    if (args["cullingMask"] != null && (args["cullingMask"].Type != JTokenType.Integer
+                        || args["cullingMask"].Value<long>() < int.MinValue || args["cullingMask"].Value<long>() > int.MaxValue))
+                        throw new ArgumentException("cullingMask requires an int32 bitmask.");
+                    if (args["renderMode"] != null && (Number(args["renderMode"]) != (int)args["renderMode"] || !Enum.IsDefined(typeof(LightRenderMode), (int)args["renderMode"]))) throw new ArgumentException("Invalid light render mode.");
+                    if (args["color"] != null) lamp.SetColor(MaterialCommands.ColorValue(args["color"]));
+                    if (args["intensity"] != null) lamp.SetIntensity(Number(args["intensity"]), true);
+                    if (args["range"] != null) lamp.SetRange(Number(args["range"]), true);
+                    if (args["spotAngle"] != null) lamp.SetSpotAngle(Number(args["spotAngle"]), true);
+                    if (args["enabled"] != null) lamp.SetEnable((bool)args["enabled"], true);
+                    if (args["shadows"] != null) lamp.SetShadow((bool)args["shadows"], true);
+                    ApplyLightOverrides(lamp, args);
+                    return Describe(lamp);
                 case "scene.snapshot":
                     var offset = Math.Max(0, (int?)args["offset"] ?? 0);
                     var limit = Math.Max(1, Math.Min(200, (int?)args["limit"] ?? 50));
@@ -82,6 +132,12 @@ namespace StudioMcp.Bridge
                 case "camera.set":
                     ValidateCamera(args);
                     var camera = Studio.Studio.Instance.cameraCtrl;
+                    if (args["distance"] != null)
+                    {
+                        var savedCamera = camera.Export();
+                        savedCamera.distance = Vector(args["distance"]);
+                        camera.Import(savedCamera);
+                    }
                     if (args["pivot"] != null) camera.targetPos = Vector(args["pivot"]);
                     if (args["rotation"] != null) camera.cameraAngle = Vector(args["rotation"]);
                     if (args["fov"] != null)
@@ -101,6 +157,16 @@ namespace StudioMcp.Bridge
             if (!Studio.Studio.Instance.dicObjectCtrl.TryGetValue(id, out target))
                 throw new ArgumentException("Studio object does not exist: " + id);
             return target;
+        }
+
+        internal void ApplyLightOverrides(OCILight lamp, JObject args)
+        {
+            var key = lamp.objectInfo.dicKey;
+            JObject saved;
+            if (!LightOverrides.TryGetValue(key, out saved)) saved = new JObject();
+            if (args["cullingMask"] != null) { lamp.light.cullingMask = (int)args["cullingMask"]; saved["cullingMask"] = (int)args["cullingMask"]; }
+            if (args["renderMode"] != null) { lamp.light.renderMode = (LightRenderMode)(int)args["renderMode"]; saved["renderMode"] = (int)args["renderMode"]; }
+            if (saved.HasValues) LightOverrides[key] = saved;
         }
 
         internal static GameObject Root(ObjectCtrlInfo target)
@@ -130,6 +196,11 @@ namespace StudioMcp.Bridge
         {
             if (args["pivot"] != null) Vector(args["pivot"]);
             if (args["rotation"] != null) Vector(args["rotation"]);
+            if (args["distance"] != null)
+            {
+                var distance = Vector(args["distance"]);
+                if (distance.magnitude < 0.01f || distance.magnitude > 1000) throw new ArgumentOutOfRangeException("distance");
+            }
             if (args["fov"] != null && (Number(args["fov"]) < 1 || Number(args["fov"]) > 170))
                 throw new ArgumentOutOfRangeException("fov");
         }
@@ -159,10 +230,16 @@ namespace StudioMcp.Bridge
             if (node?.parent != null && Studio.Studio.Instance.dicInfo.TryGetValue(node.parent, out parent))
                 parentId = parent.objectInfo.dicKey;
             var data = new JObject { ["id"] = target.objectInfo.dicKey,
-                ["name"] = node?.textName, ["type"] = target.GetType().Name,
+                ["name"] = node?.textName, ["type"] = target.GetType().Name, ["visible"] = node != null && node.visible,
                 ["parentId"] = parentId, ["position"] = Json(amount.pos),
                 ["rotation"] = Json(amount.rot), ["scale"] = Json(amount.scale) };
             var root = Root(target);
+            var lamp = target as OCILight;
+            if (lamp != null) data["light"] = new JObject { ["type"] = lamp.lightType.ToString(),
+                ["color"] = Json(lamp.lightInfo.color), ["intensity"] = lamp.lightInfo.intensity,
+                ["range"] = lamp.lightInfo.range, ["spotAngle"] = lamp.lightInfo.spotAngle,
+                ["enabled"] = lamp.lightInfo.enable, ["shadows"] = lamp.lightInfo.shadow,
+                ["cullingMask"] = lamp.light.cullingMask, ["renderMode"] = (int)lamp.light.renderMode };
             if (target is OCIChar) data["loadEnd"] = ((OCIChar)target).charInfo.loadEnd;
             if (root != null)
             {
@@ -183,6 +260,7 @@ namespace StudioMcp.Bridge
             var camera = Studio.Studio.Instance.cameraCtrl;
             return new JObject { ["pivot"] = Json(camera.targetPos), ["rotation"] = Json(camera.cameraAngle),
                 ["fov"] = camera.fieldOfView,
+                ["distance"] = Json(camera.Export().distance),
                 ["eye"] = Camera.main != null ? Json(Camera.main.transform.position) : null };
         }
 

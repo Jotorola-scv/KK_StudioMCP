@@ -17,6 +17,8 @@
     <Reference Include="UnityEngine" HintPath="$(ManagedRoot)/UnityEngine.dll" Private="false" />
     <Reference Include="KKAPI" HintPath="$(GameRoot)/BepInEx/plugins/KKAPI.dll" Private="false" Condition="'$(Game)' == 'KK'" />
     <Reference Include="KKSAPI" HintPath="$(GameRoot)/BepInEx/plugins/KKSAPI.dll" Private="false" Condition="'$(Game)' == 'KKS'" />
+    <Reference Include="ExtensibleSaveFormat" HintPath="$(GameRoot)/BepInEx/plugins/KKS_BepisPlugins/KKS_ExtensibleSaveFormat.dll" Private="false" Condition="'$(Game)' == 'KKS'" />
+    <Reference Include="ExtensibleSaveFormat" HintPath="$(GameRoot)/BepInEx/plugins/KK_BepisPlugins/ExtensibleSaveFormat.dll" Private="false" Condition="'$(Game)' == 'KK'" />
     <PackageReference Include="Json.Net.Unity3D" Version="9.0.1" />
     <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11" />
   </ItemGroup>
@@ -24,6 +26,7 @@
     <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedRoot)/UnityEngine.CoreModule.dll" Private="false" />
     <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(ManagedRoot)/UnityEngine.ImageConversionModule.dll" Private="false" />
     <Reference Include="UnityEngine.AnimationModule" HintPath="$(ManagedRoot)/UnityEngine.AnimationModule.dll" Private="false" />
+    <Reference Include="UnityEngine.ParticleSystemModule" HintPath="$(ManagedRoot)/UnityEngine.ParticleSystemModule.dll" Private="false" />
   </ItemGroup>
   <Target Name="CheckGameRoot" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('$(ManagedRoot)/Assembly-CSharp.dll')" Text="Pass -p:GameRoot=the game installation directory." />

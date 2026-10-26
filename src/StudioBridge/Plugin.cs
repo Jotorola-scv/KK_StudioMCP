@@ -61,6 +61,7 @@ namespace StudioMcp.Bridge
             Materials = new MaterialCommands(this);
             Capture = new CaptureCommands(this);
             Rendering = new RenderCommands();
+            StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
             Batches = new BatchCommands(this);
             _originalBackground = Application.runInBackground;
             Application.runInBackground = true;
@@ -163,13 +164,20 @@ namespace StudioMcp.Bridge
                     || p.Metadata.Name.IndexOf("Screencap", StringComparison.OrdinalIgnoreCase) >= 0
                     || p.Metadata.GUID == "com.tomtom.studiomcp").Select(p => new JObject
                 { ["id"] = p.Metadata.GUID, ["name"] = p.Metadata.Name, ["version"] = p.Metadata.Version.ToString() })),
-                ["materialEditor"] = Materials.Available, ["screencap"] = Capture.Available
+                ["materialEditor"] = Materials.Available, ["screencap"] = Capture.Available,
+                ["depthCapture"] = Capture.DepthAvailable
             };
             if (method.StartsWith("me.", StringComparison.Ordinal)) return Materials.Execute(method, args);
             if (method.StartsWith("capture.", StringComparison.Ordinal)) return Capture.Execute(method, args);
             if (method.StartsWith("batch.", StringComparison.Ordinal)) return Batches.Execute(method, args);
             if (method == "render.get") return Rendering.State();
+            if (method == "render.diagnostics") return Rendering.Diagnostics();
             if (method == "render.set") return Rendering.Apply((JObject)args["values"]);
+            if (method == "skybox.bind") return Rendering.BindSky(args);
+            if (method == "native_effects.get") return NativeEffectsCommands.State();
+            if (method == "native_effects.set") return NativeEffectsCommands.Apply((JObject)args["values"]);
+            if (method == "native_sky.get") return NativeEffectsCommands.SkyState();
+            if (method == "native_sky.set") return NativeEffectsCommands.SkyApply(args);
             return Scene.Execute(method, args);
         }
 
@@ -177,8 +185,10 @@ namespace StudioMcp.Bridge
         {
             return method == "scene.add_item" || method == "scene.add_character" || method == "scene.checkpoint"
                 || method == "scene.restore" || method == "object.set_transform" || method == "camera.set"
-                || method == "me.set" || method == "me.reset" || method == "me.import_texture"
-                || method == "render.set" || method.StartsWith("batch.", StringComparison.Ordinal);
+                || method == "scene.add_light" || method == "light.set" || method == "me.shader"
+                || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
+                || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
+                || method == "object.set_visible" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject
