@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BepInEx.Bootstrap;
+using KKAPI.Maker;
 using Newtonsoft.Json.Linq;
 using Studio;
 using UnityEngine;
@@ -115,7 +116,7 @@ namespace StudioMcp.Bridge
                 target.Controller = cha.GetComponent(RequiredType("KK_Plugins.MaterialEditor.MaterialEditorCharaController"));
                 target.Scope = "Character";
                 // Part roots must win over the enclosing character root, including inactive parts.
-                if (!FindPart(target, cha.objAccessory, "Accessory") && !FindPart(target, cha.objClothes, "Clothing"))
+                if (!FindPart(target, cha.GetAccessoryObjects(), "Accessory") && !FindPart(target, cha.objClothes, "Clothing"))
                     FindPart(target, cha.objHair, "Hair");
             }
             if (target.Controller == null) throw new InvalidOperationException("Material Editor controller is not ready.");
@@ -174,6 +175,8 @@ namespace StudioMcp.Bridge
 
         private static void ValidateProperty(Target target, string name, string kind)
         {
+            if (kind != "color" && kind != "float" && kind != "texture")
+                throw new ArgumentException("Supported ME property kinds are color, float and texture.");
             if (string.IsNullOrEmpty(name) || !name.StartsWith("_", StringComparison.Ordinal) || !target.Material.HasProperty(name))
                 throw new ArgumentException("Use an existing shader property name including its leading underscore.");
             var property = Properties(target.Material).FirstOrDefault(p => (string)p["name"] == name);

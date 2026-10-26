@@ -55,7 +55,7 @@ namespace StudioMcp.Bridge
             var port = Config.Bind("Server", "Port", defaultPort).Value;
             _token = Config.Bind("Server", "Token", Guid.NewGuid().ToString("N")).Value;
             _allowWrites = Config.Bind("Server", "AllowWrites", false);
-            OutputRoot = Path.Combine(Paths.GameRootPath, "UserData", "StudioMCP");
+            OutputRoot = Path.Combine(Path.Combine(Paths.GameRootPath, "UserData"), "StudioMCP");
             Directory.CreateDirectory(OutputRoot);
             Scene = new SceneCommands(this);
             Materials = new MaterialCommands(this);

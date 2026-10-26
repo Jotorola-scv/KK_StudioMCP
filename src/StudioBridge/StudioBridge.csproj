@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net46</TargetFramework>
+    <TargetFramework Condition="'$(Game)' != 'KK'">net46</TargetFramework>
+    <TargetFramework Condition="'$(Game)' == 'KK'">net35</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Game Condition="'$(Game)' == ''">KKS</Game>
     <GameRoot Condition="'$(GameRoot)' == ''">$(STUDIOMCP_GAME_ROOT)</GameRoot>

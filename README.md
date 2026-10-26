@@ -17,7 +17,8 @@ It consumes installed plugins' public APIs; it does not patch Material Editor so
   texture import; Float/Color and texture persistence after scene reload; batch prevalidation and
   undo; native render settings; checkpoint restore; stale-session rejection; and 3840x2160 Screencap.
 
-KK builds successfully; its legacy Mono runtime verification is in progress.
+- KK passed the same extended checks against its actual Unity 5.6 / Mono runtime.
+  Its bridge targets .NET 3.5; KKS targets .NET 4.6. Shader introspection on KK uses ME metadata.
 
 All interaction and verification uses PowerShell, MCP, game APIs and exported image files.
 No mouse/keyboard automation, computer-use tools, or desktop capture is used.
@@ -28,6 +29,7 @@ No mouse/keyboard automation, computer-use tools, or desktop capture is used.
 - `src/StudioMcp.Host`: standalone .NET 8 stdio MCP server; the MCP SDK is not loaded into Unity.
 - `tools/mcp_client.py`: stdio protocol verifier, including actual image-content decoding.
 - `tools/verify_mvp.py`: live ME/Screencap closed-loop verification.
+- `tools/verify_extended.py`: live character, texture, batch, checkpoint and 4K verification.
 - `tools/deploy.ps1`: installs only the bridge's own plugin directory and backs up replaced files.
   It only closes processes carrying the test harness's own launch marker.
 
@@ -38,6 +40,7 @@ References, credentials, build output, generated images and local evidence are g
 ```powershell
 dotnet build src/StudioMcp.Host/StudioMcp.Host.csproj -c Release
 ./tools/deploy.ps1 -GameRoot '<KKS installation>' -Game KKS -Launch -EnableWrites
+# For Koikatsu, use its installation path and -Game KK instead.
 ```
 
 The bridge defaults to read-only. The test launcher enables writes only in the launched process's
@@ -47,6 +50,22 @@ The listener binds to loopback and requires a generated token. Do not share `con
 Configure an MCP client to run `dotnet` with the built `StudioMcp.Host.dll`. Set
 `STUDIOMCP_CONNECTION` to `<game>/UserData/StudioMCP/connection.json`.
 Read `studio_status` or `scene_snapshot` first; writes must include that scene's `sceneSession`.
+
+A typical client configuration is:
+
+```json
+{
+  "mcpServers": {
+    "studio": {
+      "command": "dotnet",
+      "args": ["<absolute repository path>/src/StudioMcp.Host/bin/Release/net8.0/StudioMcp.Host.dll"],
+      "env": {"STUDIOMCP_CONNECTION": "<game>/UserData/StudioMCP/connection.json"}
+    }
+  }
+}
+```
+
+See [capabilities and boundaries](docs/capabilities.md) and [live verification](docs/verification.md).
 
 ## Research baseline
 
