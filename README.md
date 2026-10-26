@@ -96,4 +96,5 @@ These projects demonstrated the Studio API and image-return path. The independen
 separate plugin GUID, authenticated endpoint, bounded dispatch and the installed ME/Screencap APIs.
 Research clones live under `.references/` and are not included in this repository.
 
-StudioMCP is licensed under GPL-3.0. Dependency licenses remain applicable.
+StudioMCP is licensed under AGPL-3.0, retaining the destination repository's existing LICENSE.
+Dependency and reference-project licenses remain applicable.
