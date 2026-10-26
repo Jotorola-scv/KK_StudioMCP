@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net46</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Game Condition="'$(Game)' == ''">KKS</Game>
+    <GameRoot Condition="'$(GameRoot)' == ''">$(STUDIOMCP_GAME_ROOT)</GameRoot>
+    <ManagedRoot>$(GameRoot)/CharaStudio_Data/Managed</ManagedRoot>
+    <AssemblyName>$(Game)_StudioMCP</AssemblyName>
+    <DefineConstants>$(DefineConstants);$(Game)</DefineConstants>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx" HintPath="$(GameRoot)/BepInEx/core/BepInEx.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(ManagedRoot)/Assembly-CSharp.dll" Private="false" />
+    <Reference Include="Assembly-CSharp-firstpass" HintPath="$(ManagedRoot)/Assembly-CSharp-firstpass.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(ManagedRoot)/UnityEngine.dll" Private="false" />
+    <Reference Include="KKAPI" HintPath="$(GameRoot)/BepInEx/plugins/KKAPI.dll" Private="false" Condition="'$(Game)' == 'KK'" />
+    <Reference Include="KKSAPI" HintPath="$(GameRoot)/BepInEx/plugins/KKSAPI.dll" Private="false" Condition="'$(Game)' == 'KKS'" />
+    <PackageReference Include="Json.Net.Unity3D" Version="9.0.1" />
+    <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Game)' == 'KKS'">
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedRoot)/UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(ManagedRoot)/UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AnimationModule" HintPath="$(ManagedRoot)/UnityEngine.AnimationModule.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="CheckGameRoot" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(ManagedRoot)/Assembly-CSharp.dll')" Text="Pass -p:GameRoot=the game installation directory." />
+  </Target>
+</Project>
