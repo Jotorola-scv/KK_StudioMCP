@@ -71,6 +71,11 @@ public static class StudioTools
         int rendererId, string property, string kind, System.Text.Json.JsonElement value, int slot = 0)
         => bridge.Call("me.set", Args(new { sceneSession, objectId, rendererId, property, kind, value, slot }));
 
+    [McpServerTool, Description("Set a material's render queue through Material Editor's saved API (0-5000), or -1 to restore the shader default. Unity draws only queues <= 2500 into the camera depth texture, and only with the shader's ShadowCaster pass. ME applies it to all same-name materials in the object.")]
+    public static Task<JsonObject> MaterialSetRenderQueue(BridgeClient bridge, string sceneSession, int objectId,
+        int rendererId, int renderQueue, int slot = 0)
+        => bridge.Call("me.render_queue", Args(new { sceneSession, objectId, rendererId, renderQueue, slot }));
+
     [McpServerTool, Description("Load a character card without writing to the original card. Materials are classified as Character, Hair, Clothing or Accessory with a part slot.")]
     public static Task<JsonObject> AddCharacter(BridgeClient bridge, string sceneSession, string path,
         string sex = "female", float[]? position = null, string? name = null)

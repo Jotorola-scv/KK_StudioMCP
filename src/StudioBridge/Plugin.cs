@@ -191,6 +191,7 @@ namespace StudioMcp.Bridge
                 || method == "scene.restore" || method == "object.set_transform" || method == "camera.set"
                 || method == "scene.add_light" || method == "light.set" || method == "me.shader"
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
+                || method == "me.render_queue"
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
                 || method == "object.set_visible" || method == "tonemap.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }

@@ -32,6 +32,28 @@ namespace StudioMcp.Bridge
             if (method == "me.list") return List((int)args["objectId"]);
             var target = Resolve(args);
             if (method == "me.inspect") return Inspect(target);
+            if (method == "me.render_queue")
+            {
+                if (args["renderQueue"] == null || args["renderQueue"].Type != JTokenType.Integer)
+                    throw new ArgumentException("renderQueue requires an integer.");
+                var queue = (int)args["renderQueue"];
+                if (queue != -1 && (queue < 0 || queue > 5000))
+                    throw new ArgumentOutOfRangeException("renderQueue", "Use 0-5000, or -1 to restore the shader default.");
+                var beforeQueue = target.Material.renderQueue;
+                var call = new List<object>();
+                if (target.Scope == "Item") call.Add(target.ObjectId);
+                else { call.Add(target.PartSlot); call.Add(Enum.Parse(target.Controller.GetType().GetNestedType("ObjectType"), target.Scope)); }
+                call.Add(target.Material);
+                if (queue >= 0) call.Add(queue);
+                if (target.Scope != "Item") call.Add(target.Root);
+                call.Add(true);
+                var queueMethod = queue >= 0 ? "SetMaterialShaderRenderQueue" : "RemoveMaterialShaderRenderQueue";
+                var queueApi = target.Controller.GetType().GetMethods().SingleOrDefault(m => m.Name == queueMethod && m.GetParameters().Length == call.Count);
+                if (queueApi == null) throw new NotSupportedException("Installed ME does not expose " + queueMethod + ".");
+                queueApi.Invoke(target.Controller, call.ToArray());
+                return new JObject { ["before"] = beforeQueue, ["after"] = target.Material.renderQueue,
+                    ["persistence"] = "material_editor", ["matchingMaterials"] = MatchingMaterials(target) };
+            }
             if (method == "me.texture_transform")
             {
                 var textureName = (string)args["property"];
@@ -192,6 +214,7 @@ namespace StudioMcp.Bridge
                     result.Add(new JObject { ["objectId"] = id, ["rendererId"] = renderer.GetInstanceID(),
                         ["renderer"] = renderer.name, ["layer"] = renderer.gameObject.layer, ["slot"] = slot, ["materialId"] = materials[slot].GetInstanceID(),
                         ["name"] = materials[slot].name, ["shader"] = materials[slot].shader.name,
+                        ["renderQueue"] = materials[slot].renderQueue,
                         ["scope"] = target.Scope, ["partSlot"] = target.PartSlot });
                 }
             }
@@ -234,7 +257,8 @@ namespace StudioMcp.Bridge
         private static JObject Inspect(Target target) => new JObject {
             ["objectId"] = target.ObjectId, ["rendererId"] = target.Renderer.GetInstanceID(),
             ["slot"] = target.Slot, ["materialId"] = target.Material.GetInstanceID(), ["name"] = target.Material.name,
-            ["shader"] = target.Material.shader.name, ["scope"] = target.Scope, ["partSlot"] = target.PartSlot,
+            ["shader"] = target.Material.shader.name, ["renderQueue"] = target.Material.renderQueue,
+            ["scope"] = target.Scope, ["partSlot"] = target.PartSlot,
             ["properties"] = Properties(target.Material), ["matchingMaterials"] = MatchingMaterials(target) };
 
         private static JArray Properties(Material material)

@@ -103,3 +103,16 @@ Live checks on the same KKS installation:
 - Loading a card without the setting, including after each restore, returned the far plane to 1000.
 
 The KK target was not compiled or run for this change.
+
+## Material render queue — 2026-10-27
+
+`material_set_render_queue` calls Material Editor 5.0's `SetMaterialShaderRenderQueue` (or
+`RemoveMaterialShaderRenderQueue` for -1); `materials_list` and `material_inspect` now report the queue.
+On the ProceduralParadise ClubRoom window glass, 2475 survived a checkpoint save and reload from another
+card, and -1 restored the shader default 3000.
+
+Depth-texture check on the CrystalFantasy glass, with native DOF and paired depth export: tom/BSDFGlass at
+3000 and 2475 and tom/BSDFAlpha (Cutout caster) at 3000 exported byte-identical depth; tom/BSDFAlpha at
+2475 moved 46.6% of pixels nearer. Unity only draws queues <= 2500 into the camera depth texture, through
+the ShadowCaster pass, and tom/BSDFGlass has none. At 2475 the skybox also overwrites tom/BSDFGlass
+wherever the sky is behind it. Material Editor 4.x was not tested; the tool reports when the API is absent.
