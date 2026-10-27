@@ -40,6 +40,7 @@ namespace StudioMcp.Bridge
                 plugin.Rendering.ClearSkyBinding();
                 plugin.Scene.LightOverrides.Clear();
                 plugin.Tone.Reset();
+                plugin.Rendering.ResetCamera();
             }
             if (operation != SceneOperationKind.Load && !importing) return;
             var data = GetExtendedData();

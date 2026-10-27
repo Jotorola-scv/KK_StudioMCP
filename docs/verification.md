@@ -89,3 +89,17 @@ Screencap 21.1.3) with the four Rainline weather cards:
 
 The MCP host and KKS bridge compiled with zero warnings/errors. The KK target was not compiled or run
 for this change.
+
+## Camera far clip — 2026-10-27
+
+The ProceduralParadise ClubRoom exterior spans about 8.3 km, beyond Studio's 1000 m camera far plane,
+so its city skyline and sky halo were clipped. `render_set` now accepts `cameraFarClip` (10-20000).
+Live checks on the same KKS installation:
+
+- A ClubRoom capture at 9000 showed the clipped city and halo; 1000 did not.
+- A value of 5 was rejected without changing the far plane.
+- A checkpoint saved at 9000 restored 9000. A second checkpoint saved at 7500 restored 7500 with its
+  `.bridge.json` sidecar deleted, so the value is read from the scene PNG's extended data.
+- Loading a card without the setting, including after each restore, returned the far plane to 1000.
+
+The KK target was not compiled or run for this change.
