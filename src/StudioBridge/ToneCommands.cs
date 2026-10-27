@@ -12,7 +12,7 @@ namespace StudioMcp.Bridge
     {
         private static readonly string[] Modes = { "Disabled", "Photographic", "FilmicHable", "FilmicACES" };
         internal bool Owns;
-        private JObject _defaults;
+        private JObject _original;
 
         private static Component Effect()
         {
@@ -36,7 +36,6 @@ namespace StudioMcp.Bridge
         internal JObject State()
         {
             var effect = Effect();
-            if (_defaults == null) _defaults = Read(effect);
             var state = Read(effect);
             state["blendAmount"] = (float)Field(effect, "BlendAmount").GetValue(effect);
             state["owned"] = Owns;
@@ -65,7 +64,9 @@ namespace StudioMcp.Bridge
         {
             Validate(values);
             var before = State();
-            Write(Effect(), values);
+            var effect = Effect();
+            if (!Owns) _original = Read(effect);
+            Write(effect, values);
             Owns = true;
             return new JObject { ["before"] = before, ["after"] = State(), ["persistence"] = "scene_extended_data" };
         }
@@ -81,13 +82,14 @@ namespace StudioMcp.Bridge
             if (values["linearWhitePoint"] != null) Field(effect, "LinearWhitePoint").SetValue(effect, (float)values["linearWhitePoint"]);
         }
 
-        // A loaded scene without saved tonemapping must not inherit the previous scene's values.
+        // Release only our own edits; inspection must never change later scene loads.
         internal void Reset()
         {
+            if (!Owns) return;
             Owns = false;
-            if (_defaults == null) return;
-            try { Write(Effect(), _defaults); }
+            try { Write(Effect(), _original); }
             catch (NotSupportedException) { }
+            finally { _original = null; }
         }
     }
 }

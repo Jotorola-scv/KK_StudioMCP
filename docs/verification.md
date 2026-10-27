@@ -104,6 +104,15 @@ Live checks on the same KKS installation:
 
 The KK target was not compiled or run for this change.
 
+## Tonemap ownership correction
+
+The restore snapshot is now taken at the first actual write, not at read-only inspection, and
+released after resetting a bridge-owned edit. Five focused checks passed against the production
+`ToneCommands` source with stand-in camera/effect objects: read-only reset preserves external changes;
+repeated writes restore the first pre-edit value; later unowned resets do nothing; a new ownership
+period captures fresh values; and invalid input neither writes nor acquires ownership.
+These are isolated regression checks, not a new in-game rendering acceptance run.
+
 ## Material render queue — 2026-10-27
 
 `material_set_render_queue` calls Material Editor 5.0's `SetMaterialShaderRenderQueue` (or
