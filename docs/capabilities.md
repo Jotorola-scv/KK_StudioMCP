@@ -8,7 +8,7 @@ because it must wait for the end of a rendered frame; the MCP capture tool waits
 | Area | Tools / behavior |
 | --- | --- |
 | Scene | `scene_snapshot`, `add_item`, `add_character`, `set_transform`. Studio object IDs, hierarchy, saved transforms and renderer bounds. |
-| Camera | `camera_get`, `camera_set`. Orbit pivot, Euler rotation, distance and field of view. The pivot is distinct from the camera eye. |
+| Camera | `camera_get`, `camera_set`. Orbit pivot, Euler rotation, distance and field of view. The pivot is distinct from the camera eye. `camera_slots_get`, `camera_slot_save`, `camera_slot_load` use Studio's native camera slots, which are saved in the scene PNG. |
 | Lights | `catalog_search`, `add_light`, `light_set`. Native Studio light color, intensity, range, cone, enabled/shadow state, plus explicit culling mask and render mode. |
 | ME | `materials_list`, `material_inspect`, `material_set_shader`, `material_set`, `material_reset`, `material_import_texture`, `material_set_render_queue`. Shader/Float/Color/render-queue edits and PNG/JPEG import use installed ME public persistence APIs. |
 | Character scope | Body/head, hair, clothing and accessories; part slots are resolved from the actual renderer hierarchy. KKAPI includes MoreAccessories slots. |

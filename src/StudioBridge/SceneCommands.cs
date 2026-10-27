@@ -129,6 +129,23 @@ namespace StudioMcp.Bridge
                     ApplyTransform(target, args);
                     return Describe(target);
                 case "camera.get": return CameraState();
+                case "camera.slots":
+                    var slots = Studio.Studio.Instance.sceneInfo.cameraData;
+                    return new JObject { ["slots"] = new JArray(slots.Select((data, index) => data == null ? (JToken)new JObject { ["slot"] = index }
+                        : new JObject { ["slot"] = index, ["pivot"] = Json(data.pos), ["rotation"] = Json(data.rotate),
+                            ["distance"] = Json(data.distance), ["fov"] = data.parse })) };
+                case "camera.slot_save":
+                case "camera.slot_load":
+                    // Studio's own camera buttons: save copies the current camera into the scene's slot array,
+                    // load imports it. The slots are written into the scene PNG by SceneInfo.Save.
+                    var cameraSlots = Studio.Studio.Instance.sceneInfo.cameraData;
+                    if (args["slot"] == null || args["slot"].Type != JTokenType.Integer) throw new ArgumentException("slot requires an integer.");
+                    var slotIndex = (int)args["slot"];
+                    if (slotIndex < 0 || slotIndex >= cameraSlots.Length) throw new ArgumentOutOfRangeException("slot", "Use 0-" + (cameraSlots.Length - 1) + ".");
+                    if (method == "camera.slot_save") cameraSlots[slotIndex] = Studio.Studio.Instance.cameraCtrl.Export();
+                    else if (cameraSlots[slotIndex] == null) throw new InvalidOperationException("Camera slot " + slotIndex + " is empty.");
+                    else Studio.Studio.Instance.cameraCtrl.Import(cameraSlots[slotIndex]);
+                    return new JObject { ["slot"] = slotIndex, ["camera"] = CameraState() };
                 case "camera.set":
                     ValidateCamera(args);
                     var camera = Studio.Studio.Instance.cameraCtrl;

@@ -53,6 +53,17 @@ public static class StudioTools
         float[]? pivot = null, float[]? rotation = null, float? fov = null, float[]? distance = null)
         => bridge.Call("camera.set", Args(new { sceneSession, pivot, rotation, fov, distance }));
 
+    [McpServerTool, Description("Read the scene's saved Studio camera slots (the native camera save/load buttons): pivot, rotation, distance and field of view per slot.")]
+    public static Task<JsonObject> CameraSlotsGet(BridgeClient bridge) => bridge.Call("camera.slots");
+
+    [McpServerTool, Description("Save the current camera into a native Studio camera slot, exactly like Studio's camera save button. Slots are stored in the scene PNG when the scene is saved.")]
+    public static Task<JsonObject> CameraSlotSave(BridgeClient bridge, string sceneSession, int slot)
+        => bridge.Call("camera.slot_save", Args(new { sceneSession, slot }));
+
+    [McpServerTool, Description("Move the camera to a saved native Studio camera slot, exactly like Studio's camera load button.")]
+    public static Task<JsonObject> CameraSlotLoad(BridgeClient bridge, string sceneSession, int slot)
+        => bridge.Call("camera.slot_load", Args(new { sceneSession, slot }));
+
     [McpServerTool, Description("List renderer handles, material slots and shaders for a Studio object. Handles are valid only for the current scene.")]
     public static Task<JsonObject> MaterialsList(BridgeClient bridge, int objectId)
         => bridge.Call("me.list", Args(new { objectId }));

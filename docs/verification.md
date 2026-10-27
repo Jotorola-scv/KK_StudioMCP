@@ -116,3 +116,19 @@ Depth-texture check on the CrystalFantasy glass, with native DOF and paired dept
 2475 moved 46.6% of pixels nearer. Unity only draws queues <= 2500 into the camera depth texture, through
 the ShadowCaster pass, and tom/BSDFGlass has none. At 2475 the skybox also overwrites tom/BSDFGlass
 wherever the sky is behind it. Material Editor 4.x was not tested; the tool reports when the API is absent.
+
+## Camera slots — 2026-10-27
+
+`camera_slots_get`, `camera_slot_save` and `camera_slot_load` use Studio's `SceneInfo.cameraData` (10 slots)
+through `CameraControl.Export` and `Import`, the same path as Studio's camera save and load buttons, so
+`SceneInfo.Save` writes the slots into the scene PNG. Live checks on the same KKS installation:
+
+- The three ProceduralParadise v3 cards stored 5, 6 and 5 slots, with slot 0 as the main view. After a cold
+  reload of each checkpoint, `camera_slots_get` returned the saved pivot, rotation, distance and field of view
+  within 1e-3 for every stored slot, and the main camera matched slot 0.
+- Captures of the main view and of `camera_slot_load` on the last stored slot reproduced the original 4K
+  renders: mean absolute difference 0 of 255 after downscaling to 480x270.
+- Slots 10 and -1 were rejected ("Use 0-9.") without moving the camera, and 1.5 was rejected as a
+  non-integer. Slots the tool did not save were reported with whatever the card already held.
+
+The KK target was not compiled or run for this change.

@@ -189,6 +189,7 @@ namespace StudioMcp.Bridge
         {
             return method == "scene.add_item" || method == "scene.add_character" || method == "scene.checkpoint"
                 || method == "scene.restore" || method == "object.set_transform" || method == "camera.set"
+                || method == "camera.slot_save" || method == "camera.slot_load"
                 || method == "scene.add_light" || method == "light.set" || method == "me.shader"
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
                 || method == "me.render_queue"
