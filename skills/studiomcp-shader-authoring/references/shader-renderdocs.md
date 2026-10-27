@@ -47,8 +47,9 @@ it into one of these families.
    services/resources and the missing-plugin fallback. Read the relevant sections, not every plan.
 4. **MaterialContracts.md**: channels, encoding, color/data routes, units, masks, normals, height,
    layer and alpha semantics. This is the critical step before choosing parameter values.
-5. **ShaderCatalog.json**: resolve the exact name, source/carrier path, current registered properties
-   and categories, literal Pass/UsePass names and source fingerprints. Schema 2 normalizes text to
+5. **ShaderCatalog.json**: resolve the exact name, source/carrier path, registered-property counts
+   and categories, literal Pass/UsePass names and source fingerprints. Property IDs come from the
+   manifest/source, not the count summary. Schema 2 normalizes text to
    UTF-8/LF without BOM; it does not hash delivered binaries or expand every preprocessor path.
 6. **manifest.xml and tooltip**: confirm current editable IDs/types/ranges and family-specific help.
    Manifest IDs and MCP wire names may differ by the leading underscore; use inspected wire names.
