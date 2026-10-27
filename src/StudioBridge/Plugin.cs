@@ -31,6 +31,7 @@ namespace StudioMcp.Bridge
         internal MaterialCommands Materials;
         internal CaptureCommands Capture;
         internal RenderCommands Rendering;
+        internal ToneCommands Tone;
         internal BatchCommands Batches;
         internal string Session = Guid.NewGuid().ToString("N");
         internal string OutputRoot;
@@ -61,6 +62,7 @@ namespace StudioMcp.Bridge
             Materials = new MaterialCommands(this);
             Capture = new CaptureCommands(this);
             Rendering = new RenderCommands();
+            Tone = new ToneCommands();
             StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
             Batches = new BatchCommands(this);
             _originalBackground = Application.runInBackground;
@@ -174,6 +176,8 @@ namespace StudioMcp.Bridge
             if (method == "render.diagnostics") return Rendering.Diagnostics();
             if (method == "render.set") return Rendering.Apply((JObject)args["values"]);
             if (method == "skybox.bind") return Rendering.BindSky(args);
+            if (method == "tonemap.get") return Tone.State();
+            if (method == "tonemap.set") return Tone.Apply(args["values"] as JObject);
             if (method == "native_effects.get") return NativeEffectsCommands.State();
             if (method == "native_effects.set") return NativeEffectsCommands.Apply((JObject)args["values"]);
             if (method == "native_sky.get") return NativeEffectsCommands.SkyState();
@@ -185,10 +189,12 @@ namespace StudioMcp.Bridge
         {
             return method == "scene.add_item" || method == "scene.add_character" || method == "scene.checkpoint"
                 || method == "scene.restore" || method == "object.set_transform" || method == "camera.set"
+                || method == "camera.slot_save" || method == "camera.slot_load"
                 || method == "scene.add_light" || method == "light.set" || method == "me.shader"
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
+                || method == "me.render_queue"
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
-                || method == "object.set_visible" || method.StartsWith("batch.", StringComparison.Ordinal);
+                || method == "object.set_visible" || method == "tonemap.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject

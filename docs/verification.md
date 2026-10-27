@@ -72,3 +72,80 @@ The later Rainline additions are described separately in `rainline-authoring.md`
   build output and showcase evidence are excluded from the source upload.
 
 Successful KK compilation is not new runtime qualification of the later KKS scene-authoring tools.
+
+## Tonemapping and sky reload fix — 2026-10-27
+
+Exercised through the stdio MCP host on a second KKS installation (Material Editor 5.0, KKSAPI 1.45.1,
+Screencap 21.1.3) with the four Rainline weather cards:
+
+- `tonemap_get` reported the camera default (Disabled, exposure 1.0, white point 11.2). `tonemap_set`
+  switched to FilmicACES, FilmicHable and Photographic; each change was confirmed by a capture. The
+  values were saved in new native scene PNGs and restored, with `owned` set, after cold reloads.
+- Before the fix, native-sky cards loaded directly after custom-sky cards (Sunny Day after Rainy Day,
+  Moonlit Night after Rainy Night) rendered with the earlier scene's skybox material. After it,
+  `native_sky_get` reported each card's own Funly material and captures matched fresh-load references.
+- Four re-authored cards were reloaded cold with no differences in tonemapping, native render settings,
+  native effects, light overrides or tree visibility; all three probe controllers reached Ready.
+
+The MCP host and KKS bridge compiled with zero warnings/errors. The KK target was not compiled or run
+for this change.
+
+## Camera far clip — 2026-10-27
+
+The ProceduralParadise ClubRoom exterior spans about 8.3 km, beyond Studio's 1000 m camera far plane,
+so its city skyline and sky halo were clipped. `render_set` now accepts `cameraFarClip` (10-20000).
+Live checks on the same KKS installation:
+
+- A ClubRoom capture at 9000 showed the clipped city and halo; 1000 did not.
+- A value of 5 was rejected without changing the far plane.
+- A checkpoint saved at 9000 restored 9000. A second checkpoint saved at 7500 restored 7500 with its
+  `.bridge.json` sidecar deleted, so the value is read from the scene PNG's extended data.
+- Loading a card without the setting, including after each restore, returned the far plane to 1000.
+
+The KK target was not compiled or run for this change.
+
+## Tonemap ownership correction
+
+The restore snapshot is now taken at the first actual write, not at read-only inspection, and
+released after resetting a bridge-owned edit. Five focused checks passed against the production
+`ToneCommands` source with stand-in camera/effect objects: read-only reset preserves external changes;
+repeated writes restore the first pre-edit value; later unowned resets do nothing; a new ownership
+period captures fresh values; and invalid input neither writes nor acquires ownership.
+These are isolated regression checks, not a new in-game rendering acceptance run.
+
+## Material render queue — 2026-10-27
+
+`material_set_render_queue` calls Material Editor 5.0's `SetMaterialShaderRenderQueue` (or
+`RemoveMaterialShaderRenderQueue` for -1); `materials_list` and `material_inspect` now report the queue.
+On the ProceduralParadise ClubRoom window glass, 2475 survived a checkpoint save and reload from another
+card, and -1 restored the recorded original queue 3000, which also matched that shader's default.
+
+Depth-texture check on the CrystalFantasy glass, with native DOF and paired depth export: tom/BSDFGlass at
+3000 and 2475 and tom/BSDFAlpha (Cutout caster) at 3000 exported byte-identical depth; tom/BSDFAlpha at
+2475 moved 46.6% of pixels nearer. Unity only draws queues <= 2500 into the camera depth texture, through
+the ShadowCaster pass, and tom/BSDFGlass has none. At 2475 the skybox also overwrites tom/BSDFGlass
+wherever the sky is behind it. Material Editor 4.x was not tested; the tool reports when the API is absent.
+
+## Camera slots — 2026-10-27
+
+`camera_slots_get`, `camera_slot_save` and `camera_slot_load` use Studio's `SceneInfo.cameraData` (10 slots)
+through `CameraControl.Export` and `Import`, the same path as Studio's camera save and load buttons, so
+`SceneInfo.Save` writes the slots into the scene PNG. Live checks on the same KKS installation:
+
+- The three ProceduralParadise v3 cards stored 5, 6 and 5 slots, with slot 0 as the main view. After a cold
+  reload of each checkpoint, `camera_slots_get` returned the saved pivot, rotation, distance and field of view
+  within 1e-3 for every stored slot, and the main camera matched slot 0.
+- Captures of the main view and of `camera_slot_load` on the last stored slot reproduced the original 4K
+  renders: mean absolute difference 0 of 255 after downscaling to 480x270.
+- Slots 10 and -1 were rejected ("Use 0-9.") without moving the camera, and 1.5 was rejected as a
+  non-integer. Slots the tool did not save were reported with whatever the card already held.
+
+The KK target was not compiled or run for this change.
+
+## Mainline integration checks
+
+The combined mainline passed Release builds of the MCP host, KKS bridge and KK bridge with zero
+warnings/errors. The five isolated tonemap checks above and three invalid timeout settings (4, 181
+and non-numeric) passed against the production sources. Actual stdio MCP discovery returned all
+37 tools, including the corrected tonemap ownership and render-queue reset descriptions.
+This integration check did not rerun in-game rendering or qualify the later tools on KK at runtime.

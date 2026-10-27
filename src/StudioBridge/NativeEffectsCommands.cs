@@ -81,6 +81,13 @@ namespace StudioMcp.Bridge
             model.GetType().GetMethod("UpdateInfo", BindingFlags.Public | BindingFlags.Instance).Invoke(model, null);
         }
 
+        internal static void RefreshSky()
+        {
+#if KKS
+            Refresh("skyInfo");
+#endif
+        }
+
         internal static Behaviour SkyController()
         {
 #if KKS

@@ -53,6 +53,17 @@ public static class StudioTools
         float[]? pivot = null, float[]? rotation = null, float? fov = null, float[]? distance = null)
         => bridge.Call("camera.set", Args(new { sceneSession, pivot, rotation, fov, distance }));
 
+    [McpServerTool, Description("Read the scene's saved Studio camera slots (the native camera save/load buttons): pivot, rotation, distance and field of view per slot.")]
+    public static Task<JsonObject> CameraSlotsGet(BridgeClient bridge) => bridge.Call("camera.slots");
+
+    [McpServerTool, Description("Save the current camera into a native Studio camera slot, exactly like Studio's camera save button. Slots are stored in the scene PNG when the scene is saved.")]
+    public static Task<JsonObject> CameraSlotSave(BridgeClient bridge, string sceneSession, int slot)
+        => bridge.Call("camera.slot_save", Args(new { sceneSession, slot }));
+
+    [McpServerTool, Description("Move the camera to a saved native Studio camera slot, exactly like Studio's camera load button.")]
+    public static Task<JsonObject> CameraSlotLoad(BridgeClient bridge, string sceneSession, int slot)
+        => bridge.Call("camera.slot_load", Args(new { sceneSession, slot }));
+
     [McpServerTool, Description("List renderer handles, material slots and shaders for a Studio object. Handles are valid only for the current scene.")]
     public static Task<JsonObject> MaterialsList(BridgeClient bridge, int objectId)
         => bridge.Call("me.list", Args(new { objectId }));
@@ -70,6 +81,11 @@ public static class StudioTools
     public static Task<JsonObject> MaterialSet(BridgeClient bridge, string sceneSession, int objectId,
         int rendererId, string property, string kind, System.Text.Json.JsonElement value, int slot = 0)
         => bridge.Call("me.set", Args(new { sceneSession, objectId, rendererId, property, kind, value, slot }));
+
+    [McpServerTool, Description("Set a material's render queue through Material Editor's saved API (0-5000), or -1 to remove ME's override and restore the recorded original queue. Unity draws only queues <= 2500 into the camera depth texture, and only with the shader's ShadowCaster pass. ME applies it to all same-name materials in the object.")]
+    public static Task<JsonObject> MaterialSetRenderQueue(BridgeClient bridge, string sceneSession, int objectId,
+        int rendererId, int renderQueue, int slot = 0)
+        => bridge.Call("me.render_queue", Args(new { sceneSession, objectId, rendererId, renderQueue, slot }));
 
     [McpServerTool, Description("Load a character card without writing to the original card. Materials are classified as Character, Hair, Clothing or Accessory with a part slot.")]
     public static Task<JsonObject> AddCharacter(BridgeClient bridge, string sceneSession, string path,
@@ -111,6 +127,13 @@ public static class StudioTools
     [McpServerTool, Description("Set a Studio object's native saved visibility, including its children. Useful for separately authored weather particle objects.")]
     public static Task<JsonObject> SetVisible(BridgeClient bridge, string sceneSession, int objectId, bool visible)
         => bridge.Call("object.set_visible", Args(new { sceneSession, objectId, visible }));
+
+    [McpServerTool, Description("Read the Studio camera's native AmplifyColor tonemapper, exposure, linear white point and LUT blend.")]
+    public static Task<JsonObject> TonemapGet(BridgeClient bridge) => bridge.Call("tonemap.get");
+
+    [McpServerTool, Description("Set the Studio camera's native AmplifyColor tonemapper (Disabled, Photographic, FilmicHable, FilmicACES), exposure (0.05-16) and linear white point (0.5-64). Saved in the scene PNG. Scene loads reset only bridge-owned edits to their pre-edit values. No extra postprocessing stack.")]
+    public static Task<JsonObject> TonemapSet(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement values)
+        => bridge.Call("tonemap.set", Args(new { sceneSession, values }));
 
     [McpServerTool, Description("Read bounded actual camera, light and reflection-probe resources, including color space and probe texture availability. Read only.")]
     public static Task<JsonObject> RenderDiagnostics(BridgeClient bridge) => bridge.Call("render.diagnostics");

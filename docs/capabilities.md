@@ -8,13 +8,14 @@ because it must wait for the end of a rendered frame; the MCP capture tool waits
 | Area | Tools / behavior |
 | --- | --- |
 | Scene | `scene_snapshot`, `add_item`, `add_character`, `set_transform`. Studio object IDs, hierarchy, saved transforms and renderer bounds. |
-| Camera | `camera_get`, `camera_set`. Orbit pivot, Euler rotation, distance and field of view. The pivot is distinct from the camera eye. |
+| Camera | `camera_get`, `camera_set`. Orbit pivot, Euler rotation, distance and field of view. The pivot is distinct from the camera eye. `camera_slots_get`, `camera_slot_save`, `camera_slot_load` use Studio's native camera slots, which are saved in the scene PNG. |
 | Lights | `catalog_search`, `add_light`, `light_set`. Native Studio light color, intensity, range, cone, enabled/shadow state, plus explicit culling mask and render mode. |
-| ME | `materials_list`, `material_inspect`, `material_set_shader`, `material_set`, `material_reset`, `material_import_texture`. Shader/Float/Color edits and PNG/JPEG import use installed ME public persistence APIs. |
+| ME | `materials_list`, `material_inspect`, `material_set_shader`, `material_set`, `material_reset`, `material_import_texture`, `material_set_render_queue`. Shader/Float/Color/render-queue edits and PNG/JPEG import use installed ME public persistence APIs. |
 | Character scope | Body/head, hair, clothing and accessories; part slots are resolved from the actual renderer hierarchy. KKAPI includes MoreAccessories slots. |
-| Native rendering | `render_get`, `render_set`, `render_diagnostics`. Ambient mode and sky/equator/ground colors, fog, shadow distance/cascades, MSAA, pixel-light count, realtime probes and camera clear settings. Diagnostics report camera depth/HDR, light layers and live TomProbe capture state. |
+| Native rendering | `render_get`, `render_set`, `render_diagnostics`. Ambient mode and sky/equator/ground colors, fog, shadow distance/cascades, MSAA, pixel-light count, realtime probes, camera clear settings and camera far clip (10-20000; restored on loading a scene without it). Diagnostics report camera depth/HDR, light layers and live TomProbe capture state. |
 | Native Studio effects | `native_effects_get`, `native_effects_set`. Original SceneInfo AO, bloom, fog, DOF, vignette, sun shafts, color-effect blend and character-light intensity. No external post stack is installed or controlled. |
 | Sky | `native_sky_get`, `native_sky_set` select original KKS presets. `skybox_bind` binds an inspected item's native Skybox material and stores the item/renderer reference in the scene PNG. |
+| Tonemapping | `tonemap_get`, `tonemap_set`. The Studio camera's existing AmplifyColor tonemapper (Disabled, Photographic, FilmicHable, FilmicACES), exposure and linear white point. Opt-in; saved in the scene PNG. Scene loads reset only bridge-owned edits to values captured before its first write. Read-only inspection does not affect restoration. |
 | Visibility and tiling | `set_visible` uses the native tree visibility path. `material_texture_transform` writes texture offset/scale using ME persistence APIs. |
 | Output | `capture`. Screencap pre/post hooks, full PNG on disk and MCP image preview up to 960 pixels wide. Optional `withDepth` invokes the installed paired color/depth exporter and returns raw depth plus metadata paths. |
 | Batch | `batch_apply`, `batch_undo`. 1–32 Float/Color, transform, camera or native-render operations. Validate all first; reverse applied operations on exceptions. One-level undo, invalidated by subsequent bridge writes or scene changes. |
@@ -24,6 +25,8 @@ because it must wait for the end of a rendered frame; the MCP capture tool waits
 
 - ME edits are matched by the provider's material-name and object/part scope. They are not isolated
   to an individual renderer slot when several materials share that name. Inspect `matchingMaterials`.
+- `material_set_render_queue` accepts 0-5000, or -1 to remove the ME override and restore its recorded
+  original queue. That original value may differ from the shader default.
 - Renderer/material handles are ephemeral. Scene reloads invalidate the session. Character and clothing
   mods can also rebuild renderers without reloading a whole scene; fetch fresh handles after such changes.
 - KK shader enumeration is limited to properties described by installed ME metadata. KKS can enumerate

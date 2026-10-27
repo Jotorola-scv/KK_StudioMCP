@@ -16,9 +16,10 @@ namespace StudioMcp.Bridge
         protected override void OnSceneSave()
         {
             var plugin = Plugin.Instance;
-            if (plugin == null || !plugin.Rendering.OwnsSettings && plugin.Scene.LightOverrides.Count == 0 && plugin.Rendering.SkyBinding == null) { SetExtendedData(null); return; }
+            if (plugin == null || !plugin.Rendering.OwnsSettings && plugin.Scene.LightOverrides.Count == 0 && plugin.Rendering.SkyBinding == null && !plugin.Tone.Owns) { SetExtendedData(null); return; }
             var data = new PluginData { version = 1 };
             if (plugin.Rendering.OwnsSettings) data.data["render"] = plugin.Rendering.State().ToString(Newtonsoft.Json.Formatting.None);
+            if (plugin.Tone.Owns) data.data["tonemap"] = plugin.Tone.Saved().ToString(Newtonsoft.Json.Formatting.None);
             if (plugin.Rendering.SkyBinding != null) data.data["skyBinding"] = plugin.Rendering.SkyBinding.ToString(Newtonsoft.Json.Formatting.None);
             data.data["lights"] = new JArray(plugin.Scene.LightOverrides.Select(p => new JObject {
                 ["id"] = p.Key, ["values"] = p.Value.DeepClone() })).ToString(Newtonsoft.Json.Formatting.None);
@@ -38,6 +39,8 @@ namespace StudioMcp.Bridge
                 plugin.Rendering.OwnsSettings = false;
                 plugin.Rendering.ClearSkyBinding();
                 plugin.Scene.LightOverrides.Clear();
+                plugin.Tone.Reset();
+                plugin.Rendering.ResetCamera();
             }
             if (operation != SceneOperationKind.Load && !importing) return;
             var data = GetExtendedData();
@@ -60,6 +63,9 @@ namespace StudioMcp.Bridge
                     RenderCommands.Validate(values);
                     StartCoroutine(ApplyAfterLoad(values, _generation));
                 }
+                // Studio never writes the tonemapper fields, so the saved values can apply immediately.
+                if (!importing && data.data.TryGetValue("tonemap", out raw) && raw is string)
+                    plugin.Tone.Apply(JObject.Parse((string)raw));
                 if (data.data.TryGetValue("lights", out raw) && raw is string)
                     foreach (var entry in JArray.Parse((string)raw))
                     {

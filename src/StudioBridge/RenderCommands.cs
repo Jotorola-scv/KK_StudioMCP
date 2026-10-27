@@ -11,17 +11,24 @@ namespace StudioMcp.Bridge
     {
         internal bool OwnsSettings;
         internal JObject SkyBinding;
-        private Material _nativeSky;
         private bool _nativeSkyControllerEnabled;
+        private float? _defaultFarClip;
+
+        // Studio never rewrites the far plane, so a scene without a saved value must get the original back.
+        internal void ResetCamera()
+        {
+            if (_defaultFarClip != null && Camera.main != null) Camera.main.farClipPlane = _defaultFarClip.Value;
+        }
 
         internal void ClearSkyBinding()
         {
             if (SkyBinding != null && Studio.Studio.Instance != null)
             {
                 NativeEffectsCommands.SkyController().enabled = _nativeSkyControllerEnabled;
-                if (_nativeSky != null) RenderSettings.skybox = _nativeSky;
+                // A skybox captured before binding can belong to a previous scene; let Studio re-apply the current pattern.
+                NativeEffectsCommands.RefreshSky();
             }
-            SkyBinding = null; _nativeSky = null;
+            SkyBinding = null;
         }
 
         internal JObject BindSky(JObject args)
@@ -34,10 +41,7 @@ namespace StudioMcp.Bridge
             var rotation = SceneCommands.Number(args["rotation"]);
             if (exposure < 0 || exposure > 8 || rotation < 0 || rotation > 360) throw new ArgumentOutOfRangeException("Sky exposure/rotation");
             if (!mat.HasProperty("_Exposure") || !mat.HasProperty("_Rotation")) throw new ArgumentException("Sky material lacks exposure/rotation.");
-            if (SkyBinding == null) {
-                _nativeSky = RenderSettings.skybox;
-                _nativeSkyControllerEnabled = NativeEffectsCommands.SkyController().enabled;
-            }
+            if (SkyBinding == null) _nativeSkyControllerEnabled = NativeEffectsCommands.SkyController().enabled;
             NativeEffectsCommands.SkyController().enabled = false;
             mat.SetFloat("_Exposure", exposure); mat.SetFloat("_Rotation", rotation);
             RenderSettings.skybox = mat; Camera.main.clearFlags = CameraClearFlags.Skybox;
@@ -61,7 +65,7 @@ namespace StudioMcp.Bridge
             "ambientLight", "ambientIntensity", "fog", "fogColor", "fogDensity", "fogStartDistance",
             "fogEndDistance", "shadowDistance", "shadowCascades", "antiAliasing", "pixelLightCount",
             "realtimeReflectionProbes", "ambientMode", "ambientSkyColor", "ambientEquatorColor", "ambientGroundColor",
-            "cameraBackgroundColor", "cameraClearFlags" };
+            "cameraBackgroundColor", "cameraClearFlags", "cameraFarClip" };
 
         internal JObject State() => new JObject {
             ["ambientLight"] = SceneCommands.Json(RenderSettings.ambientLight),
@@ -77,7 +81,8 @@ namespace StudioMcp.Bridge
             ["ambientEquatorColor"] = SceneCommands.Json(RenderSettings.ambientEquatorColor),
             ["ambientGroundColor"] = SceneCommands.Json(RenderSettings.ambientGroundColor),
             ["cameraBackgroundColor"] = SceneCommands.Json(Camera.main != null ? Camera.main.backgroundColor : Color.black),
-            ["cameraClearFlags"] = Camera.main != null ? (int)Camera.main.clearFlags : 2 };
+            ["cameraClearFlags"] = Camera.main != null ? (int)Camera.main.clearFlags : 2,
+            ["cameraFarClip"] = Camera.main != null ? Camera.main.farClipPlane : 1000f };
 
         internal JObject Diagnostics() => new JObject {
             ["colorSpace"] = QualitySettings.activeColorSpace.ToString(),
@@ -150,6 +155,7 @@ namespace StudioMcp.Bridge
                 if (p.Name == "pixelLightCount" && (v != (int)v || v > 64)) throw new ArgumentOutOfRangeException(p.Name);
                 if (p.Name == "ambientMode" && (v != (int)v || !Enum.IsDefined(typeof(UnityEngine.Rendering.AmbientMode), (int)v))) throw new ArgumentOutOfRangeException(p.Name);
                 if (p.Name == "cameraClearFlags" && v != 1 && v != 2) throw new ArgumentException("Only Skybox (1) and SolidColor (2) are supported.");
+                if (p.Name == "cameraFarClip" && (v < 10 || v > 20000)) throw new ArgumentOutOfRangeException(p.Name, "cameraFarClip must be 10-20000.");
             }
         }
 
@@ -178,6 +184,11 @@ namespace StudioMcp.Bridge
                     case "ambientGroundColor": RenderSettings.ambientGroundColor = MaterialCommands.ColorValue(p.Value); break;
                     case "cameraBackgroundColor": if (Camera.main != null) Camera.main.backgroundColor = MaterialCommands.ColorValue(p.Value); break;
                     case "cameraClearFlags": if (Camera.main != null) Camera.main.clearFlags = (CameraClearFlags)(int)p.Value; break;
+                    case "cameraFarClip":
+                        if (Camera.main == null) break;
+                        if (_defaultFarClip == null) _defaultFarClip = Camera.main.farClipPlane;
+                        Camera.main.farClipPlane = (float)p.Value;
+                        break;
                 }
             OwnsSettings = true;
             return new JObject { ["before"] = before, ["after"] = State(), ["persistence"] = "scene_extended_data_and_checkpoint_sidecar" };
