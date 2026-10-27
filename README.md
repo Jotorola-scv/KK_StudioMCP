@@ -3,6 +3,11 @@
 An independent, local-only MCP bridge for Koikatsu Studio and Koikatsu Sunshine Studio.
 It consumes installed plugins' public APIs; it does not patch Material Editor source or save formats.
 
+**[0.1.0 RC1 downloads](https://github.com/tomTom1010-IEE/KK_StudioMCP/releases/tag/v0.1.0-rc1)**:
+Host plus ONE matching KKS/KK bridge. This is a private-access pre-release for acceptance, not a
+stable release. [Install/upgrade](docs/Installation.md), [RC1 acceptance](docs/RC1-Acceptance.md),
+[release notes](docs/ReleaseNotes-0.1.0-rc1.md) and [dependency notices](THIRD-PARTY-NOTICES.md).
+
 ## Start here: agents and shader authoring
 
 Read the [agent guide](docs/Agent-Guide.md) before editing a scene. For TomX, TomBSDF or V+ LTS
@@ -73,6 +78,8 @@ postprocessing stack. See [the weather authoring record](docs/rainline-weather.m
 - `tools/verify_extended.py`: live character, texture, batch, checkpoint and 4K verification.
 - `tools/deploy.ps1`: installs only the bridge's own plugin directory and backs up replaced files.
   It only closes processes carrying the test harness's own launch marker.
+- `tools/package.ps1`: clean-source, locked-dependency, edition-isolated RC packaging; no deployment.
+- `tools/audit_packages.py`: ZIP/provenance/dependency/hash audit without loading game code.
 
 References, credentials, build output, generated images and local evidence are git-ignored.
 
@@ -83,6 +90,11 @@ dotnet build src/StudioMcp.Host/StudioMcp.Host.csproj -c Release
 ./tools/deploy.ps1 -GameRoot '<KKS installation>' -Game KKS -Launch -EnableWrites
 # For Koikatsu, use its installation path and -Game KK instead.
 ```
+
+Source builds need a compatible .NET SDK and matching Framework reference/game assemblies. The
+external host needs .NET 8; the game bridge uses its matching game Mono, not .NET 8. KK/KKS bridge
+outputs now live separately under src/StudioBridge/bin/Release/KK or KKS. Product versioning comes
+from Directory.Build.props; do not confuse MCP SDK package version with the bridge's version.
 
 The bridge defaults to read-only. The test launcher enables writes only in the launched process's
 environment. For ordinary use, explicitly enable `Server.AllowWrites` in the bridge configuration.

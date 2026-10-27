@@ -1,67 +1,72 @@
-# Release Readiness
+# Release Readiness: 0.1.0 RC1
 
-Review date: 2026-10-27. This is a release-preparation checklist, not a new game/render acceptance
-or a published binary release. Source checks and runtime checks have different scopes.
+Review date: 2026-10-27. RC1 is a private-access pre-release for maintainer acceptance, not a stable
+binary qualification. Repository visibility and rendering-provider implementations are unchanged.
 
-## Candidate Boundary
+## Frozen Candidate
 
-The documentation update is based on mainline `d63428b` plus the new README, public agent guide,
-portable shader-authoring skill and publication exclusions. Uncommitted runtime changes are not
-part of this documentation candidate and are not qualified by older tests. Freeze an explicit
-runtime commit before creating a distributable package.
+This candidate includes the MCP-only DOF state/settings, existing-buffer snapshot and native capture
+alpha adapters, production-linked contract tests, English agent/RenderDocs routing, dependency locks
+and audited packaging tools. The source commit is recorded in each PACKAGE-MANIFEST.json and must
+match the release tag. Test doubles are source tests, never deployment DLLs.
 
-**Recommendation:** ready to begin a scoped KKS preview's packaging work, not yet a completed stable
-binary release. This update publishes source documentation only; it does not deploy new game DLLs.
+Product version comes from Directory.Build.props: 0.1.0-rc1, assembly/file version 0.1.0.0. The stable
+BepInEx GUID and plugin metadata version remain com.tomtom.studiomcp / 0.1.0. Informational versions
+carry the exact source revision. MCP SDK 2.3.0 is a separate dependency version.
 
-## Checks To Record
+## Automated Gates
 
-| Check | Status |
+| Gate | Scope |
 | --- | --- |
-| English README, agent entry and self-contained skill route all three shader RenderDocs | Passed skill/schema and local-link checks |
-| Local evidence, connections, game references and build output excluded from publication | Reviewed explicit documentation-only staging list and ignore rules; reconfirm for each release |
-| Isolated committed-source Release build: .NET host, KKS bridge, KK bridge | All passed, zero warnings/errors |
-| Offline MCP initialize and tool discovery without a game connection | Passed; 37 committed-source tools, no live connection descriptor read |
-| Separate KKS/KK bridge output directories retain the correct bridge plus its two dependencies | Passed with explicit per-edition output paths; default shared output is not a packaging recipe |
-| NuGet direct/transitive advisory query for host and bridge packages | No listed advisories returned; not a complete security or fork-code review |
-| Fresh live rendering/persistence on this exact candidate | Not run in this documentation review |
-| Binary package / checksums / download-and-reload acceptance | Not prepared by this documentation update |
+| KKS contract suite | 72 linked-production adapter cases with minimal backend/Unity doubles |
+| KK/capture contract suite | 37 cases, including explicit KKS-only fallback |
+| Host and both game bridge builds | Real-reference Release builds, zero warnings/errors in preparation |
+| Offline initialize/tools/list | 40 tools; parameterless snapshot, session-required setter and None capture default preserved |
+| Portable documentation/skill | English, local links and the three reviewed shader RenderDocs routes checked |
+| Dependency freezes | Host and per-edition NuGet lock files; release recipe enforces locked restore |
+| Edition isolation | Default bridge outputs and release staging are separated by KK/KKS; deploy helper uses matching paths |
+| Archive gate | tools/audit_packages.py must verify exact contents, dependencies, source/version and every payload hash |
+| Release gate | Download uploaded assets and recheck SHA256SUMS; keep repository private and release pre-release |
 
-## Remaining Delivery Work
+Build, package and protocol responses stay under ignored local outputs. Public release summaries
+may report these checks without uploading raw evidence or connection descriptors. The package
+recipe refuses a dirty source tree, existing output directory or missing game reference roots;
+it never deletes prior candidates or deploys into a game.
 
-1. **Freeze feature scope and versions.** Decide which pending extensions ship or remain excluded.
-   Keep SDK package version, host version, bridge plugin version and release tag distinct and
-   traceable. The bridge declares plugin version 0.1.0 while its current assembly version is
-   1.0.0.0; define/document that version policy before release. Do not build from a dirty source
-   tree or from whatever DLL happens to be installed locally.
-2. **Produce explicit packages.** Publish the complete host output (DLL, runtimeconfig, deps and
-   dependencies), and separate KKS/KK game-bridge folders with their two third-party dependencies.
-   Do not redistribute proprietary game assemblies, connection descriptors or a whole mod stack.
-   Do not install the .NET 8 host DLL into BepInEx. Include install/uninstall/upgrade instructions,
-   required runtime/Framework dependencies, licenses/notices, exact source revision and checksums.
-   The default bridge output directory is shared across editions; a subsequent build can clean
-   the prior edition's DLL. Use separate outputs or stage/verify each edition before the next build.
-   Isolated per-edition outputs were checked in this review, not assembled into a release archive.
-3. **Close the runtime matrix.** Existing verification covers the earlier common KK/KKS workflow;
-   newer KKS scene-authoring, tonemap, sky, far-clip and camera-slot checks have their recorded
-   scopes. Compilation alone does not qualify those features on KK. Declare a KKS preview scope
-   or run the missing KK cases before promising equivalent support. Test missing optional providers.
-4. **Run packaged regression.** With explicit authority, install the candidate in a disposable
-   Studio. Check default read-only/authentication, stale-session and same-name material scope,
-   texture/ST/Float/Color persistence, environment/sky/tonemap/slots, native PNG cold reload,
-   capture cleanup and capability fallbacks. Keep raw evidence private; publish only summaries.
-   Do not reuse an old rendered result as acceptance of a changed runtime binary.
-5. **Make verification portable and repeatable.** The extended live verifier still assumes the
-   maintainer's default game-folder layout. Parameterize game/server/output paths, document its
-   Python/Pillow prerequisites, and keep live mutation tests opt-in. Add offline protocol/negative
-   regressions and a reproducible packaging recipe without checking test output into Git.
-6. **Review public distribution.** Confirm dependency/license notices and security/support policy,
-   and decide how recipients obtain the currently access-controlled repository. Do not make a
-   private repository public implicitly. A documentation push is not a binary or stable release.
+## Ready For Pre-release, Not Stable
 
-## Evidence And Limits
+The automated preparation supports creating the RC for acceptance. It does not qualify real
+provider behavior, GPU image correctness, scene persistence, long-running stability, arbitrary
+graphics mods or every newer feature on KK. Use [the RC1 checklist](RC1-Acceptance.md) against the
+downloaded package in a disposable Studio before promoting it.
 
-See [verification history](verification.md) for earlier scoped checks and [capabilities](capabilities.md)
-for supported behavior. Those summaries do not embed private scenes or raw responses. This review
-does not launch or modify Studio, replace plugin DLLs, change repository visibility or upload local
-evidence. Matching builds and offline schemas cannot establish game appearance, save/import behavior,
-long-running stability, resource exhaustion behavior or compatibility with arbitrary graphics mods.
+Remaining gates for a stable release:
+
+1. Install the exact downloaded host and matching game bridge with explicit authority. Check
+   default read-only/authentication, stale sessions, material-name scope, missing providers,
+   capture cleanup, actual images/depth and native PNG cold reloads.
+2. Validate real-provider scene/global policy persistence without changing provider implementations;
+   restore prior global settings. Missing/unsupported resources must preserve ordinary behavior.
+3. Decide the declared KK support matrix. Earlier common-flow checks do not qualify every later
+   KKS camera/environment/tonemap or optional-provider behavior on Unity 5.6.
+4. Run longer/failure-path acceptance as appropriate. The live extended verifier now accepts
+   explicit game/server/output paths and needs Python/Pillow; it remains opt-in and requires an
+   empty disposable scene. Contract fixtures do not replace real capture-event or GPU cleanup tests.
+5. Choose an eventual public distribution/access policy and complete support/security triage.
+   This task does not change the private repository's visibility or expose local connection tokens.
+
+## Installation, Licenses And Rebuilding
+
+See [Installation](Installation.md), [RC1 release notes](ReleaseNotes-0.1.0-rc1.md),
+[optional-control contracts](Optional-Controls.md), [contract test instructions](../tests/ExtensionContracts/README.md)
+and [dependency notices](../THIRD-PARTY-NOTICES.md).
+
+The host archive includes all published framework-dependent host files, not the .NET runtime.
+Each game archive contains only its own bridge and two redistributed dependencies, not game/API/Unity
+assemblies, backend rendering providers or a complete mod stack. Matching source is available from
+the same private-access tag. Licenses, NuGet dependency metadata and manifests are intentional
+delivery assets, not test intermediates.
+
+No game is stopped or modified by the packaging/audit tools. No rendering-provider source, DLL,
+shader, defaults or save keys are changed. See [verification history](verification.md) for earlier
+checks with their own dates and limits; do not substitute them for this RC's packaged live acceptance.

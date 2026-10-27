@@ -1,0 +1,3 @@
+# Keep redistributed license text and dependency locks portable and byte-stable.
+/licenses/** text eol=lf
+**/packages*.lock.json text eol=lf

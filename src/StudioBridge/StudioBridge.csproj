@@ -9,6 +9,7 @@
     <AssemblyName>$(Game)_StudioMCP</AssemblyName>
     <DefineConstants>$(DefineConstants);$(Game)</DefineConstants>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin/$(Configuration)/$(Game)/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="BepInEx" HintPath="$(GameRoot)/BepInEx/core/BepInEx.dll" Private="false" />

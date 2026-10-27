@@ -64,3 +64,27 @@ because it must wait for the end of a rendered frame; the MCP capture tool waits
 The endpoint binds to loopback, requires a generated token, and defaults to read-only. Enable writes
 explicitly. This prototype has been tested against the local plugin installations documented in the
 verification report; it is not a promise of compatibility with every ME/Screencap fork or graphics mod.
+
+## Optional Shared DOF Prototype (KKS)
+
+See [the optional-control contract](Optional-Controls.md) for version checks, failure behavior,
+snapshot limits, actual capture capabilities and the non-transactional provider-write boundary.
+
+`dof_compatibility_get` reads the optional `KKS_TomSceneEffects` provider.
+`dof_compatibility_set` accepts only scenePolicy=Inherit/Native/BeforeTransparents
+and globalMode=Native/BeforeTransparents, subject to normal write/session/capture
+guards. Native Studio DOF parameters stay in `native_effects_set`; the provider
+saves only its own scene-policy override. The provider is not installed by this
+bridge, and its absence is a normal unavailable result, not an error for other
+tools. No arbitrary reflection execution is exposed. This extension is not KK
+qualification or a replacement for native/physical transparent DOF.
+
+`dof_buffer_snapshot` reads the optional BSDF service's last completed main-camera
+opaque color into a new diagnostic PNG under the bridge output directory. It is
+a clipped linear readback, not a tone-mapped viewport screenshot. It neither
+requests a new buffer nor enrolls another camera and may be unavailable without
+visible refraction demand. Explicit readback/PNG encoding has a main-thread cost.
+
+`capture` additionally accepts the existing Screencap alphaMode values None
+(default), blackout and rgAlpha. withDepth requires None. Alpha extraction is
+still performed by the installed Screencap, not reimplemented by StudioMCP.

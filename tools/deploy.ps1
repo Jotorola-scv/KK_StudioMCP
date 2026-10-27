@@ -29,7 +29,7 @@ foreach ($studioName in @("${Game}_StudioMCP.dll", 'Newtonsoft.Json.dll', 'webso
     if (Test-Path -LiteralPath $studioTarget) {
         Copy-Item -LiteralPath $studioTarget -Destination (Join-Path $studioBackup ("${Game}_" + [DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff') + '_' + $studioName))
     }
-    Copy-Item -LiteralPath "$studioRepo/src/StudioBridge/bin/Release/$studioName" -Destination $studioTarget -Force
+    Copy-Item -LiteralPath "$studioRepo/src/StudioBridge/bin/Release/$Game/$studioName" -Destination $studioTarget -Force
 }
 if ($Launch) {
     $studioLogs = Join-Path $studioRepo '.local/logs'

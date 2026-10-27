@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Unity/Unity.csproj" />
+    <ProjectReference Include="../DofProvider/DofProvider.csproj" />
+    <ProjectReference Include="../SceneProvider/SceneProvider.csproj" />
+    <PackageDownload Include="Json.Net.Unity3D" Version="[9.0.1]" />
+    <Reference Include="Newtonsoft.Json"><HintPath>$(NuGetPackageRoot)json.net.unity3d/9.0.1/lib/net35/Newtonsoft.Json.dll</HintPath></Reference>
+    <Compile Include="../../../src/StudioBridge/DofCompatibilityCommands.cs" Link="Production/DofCompatibilityCommands.cs" />
+    <Compile Include="../../../src/StudioBridge/CaptureCommands.cs" Link="Production/CaptureCommands.cs" />
+  </ItemGroup>
+</Project>

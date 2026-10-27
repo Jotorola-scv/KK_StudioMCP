@@ -1,0 +1,43 @@
+{
+  "reviewDate": "2026-10-27",
+  "scope": "Redistribution notices from pinned upstream license assets; NuGet license metadata and runtime notice copies are also included in packages",
+  "textNormalization": "UTF-8 without BOM, LF",
+  "files": [
+    {
+      "file": "MCP-SDK-LICENSE.txt",
+      "source": "https://github.com/modelcontextprotocol/csharp-sdk/blob/9a327829ef066c44a0d737c58bf3c7617d7c701c/LICENSE",
+      "gitBlobSha": "185054bef9dfb083b7ab2db43908ffa173a0f48e",
+      "sha256": "7c6a686d2b34b86ad8c726e0ac4d76903b525f251d73e617f8db3879fa8f11fc"
+    },
+    {
+      "file": "MCP-SDK-NOTICES.txt",
+      "source": "https://github.com/modelcontextprotocol/csharp-sdk/blob/9a327829ef066c44a0d737c58bf3c7617d7c701c/THIRD-PARTY-NOTICES.txt",
+      "gitBlobSha": "27514aeb1c013ca127350f9633890816c1529b45",
+      "sha256": "b9c35f6ab075077d5c2b644fdc58eb5696b8b70f539947f9e1e57331599fc5ce"
+    },
+    {
+      "file": "Microsoft-DotNet-LICENSE.txt",
+      "source": "https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/LICENSE.TXT",
+      "gitBlobSha": "a616ed188dfce68ee308f674350ad242d8588c2b",
+      "sha256": "ae48df11a335dc1a615f4f938b69cba73bcf4485c4f97af49b38efb0f216353b"
+    },
+    {
+      "file": "Microsoft-Extensions-LICENSE.txt",
+      "source": "https://github.com/dotnet/extensions/blob/25f07afa51034e37b334210642d7dc5f191c142d/LICENSE",
+      "gitBlobSha": "793ac5e0f2032449e529d1d11a44d95630321efb",
+      "sha256": "47f0ad8ba753eae5de6178291cd8f38bbb42d2368b177f8e11714ad17c701275"
+    },
+    {
+      "file": "Json.Net.Unity3D-LICENSE.txt",
+      "source": "https://github.com/SaladLab/Json.Net.Unity3D/blob/1bbe0d87a9515481c1fc4f7c62ac806320081eee/LICENSE",
+      "gitBlobSha": "5abe4837bedd713392dfe504a44f9f50eeb92c35",
+      "sha256": "d5e99347dc6569206b6ce4c83ac0b516d8128a6bb0b48d794fc3f825f15de098"
+    },
+    {
+      "file": "WebSocketSharp-LICENSE.txt",
+      "source": "https://github.com/sta/websocket-sharp/blob/d78e5eb6847ed59018cf50b935f96175ca6b6523/LICENSE.txt",
+      "gitBlobSha": "5f791375f943cda6f21670c826754e32202a4ddc",
+      "sha256": "9678c808e025829062bcf63057c26357741fc5f0032f078a248c2f9c7ad291af"
+    }
+  ]
+}

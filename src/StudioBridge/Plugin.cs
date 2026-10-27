@@ -167,7 +167,7 @@ namespace StudioMcp.Bridge
                     || p.Metadata.GUID == "com.tomtom.studiomcp").Select(p => new JObject
                 { ["id"] = p.Metadata.GUID, ["name"] = p.Metadata.Name, ["version"] = p.Metadata.Version.ToString() })),
                 ["materialEditor"] = Materials.Available, ["screencap"] = Capture.Available,
-                ["depthCapture"] = Capture.DepthAvailable
+                ["depthCapture"] = Capture.DepthAvailable, ["captureOptions"] = Capture.Capabilities
             };
             if (method.StartsWith("me.", StringComparison.Ordinal)) return Materials.Execute(method, args);
             if (method.StartsWith("capture.", StringComparison.Ordinal)) return Capture.Execute(method, args);
@@ -180,6 +180,9 @@ namespace StudioMcp.Bridge
             if (method == "tonemap.set") return Tone.Apply(args["values"] as JObject);
             if (method == "native_effects.get") return NativeEffectsCommands.State();
             if (method == "native_effects.set") return NativeEffectsCommands.Apply((JObject)args["values"]);
+            if (method == "dof_compat.get") return DofCompatibilityCommands.State();
+            if (method == "dof_compat.set") return DofCompatibilityCommands.Apply(args);
+            if (method == "dof_compat.snapshot") return DofCompatibilityCommands.Snapshot(OutputRoot, Capture.Busy);
             if (method == "native_sky.get") return NativeEffectsCommands.SkyState();
             if (method == "native_sky.set") return NativeEffectsCommands.SkyApply(args);
             return Scene.Execute(method, args);
@@ -194,7 +197,7 @@ namespace StudioMcp.Bridge
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
                 || method == "me.render_queue"
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
-                || method == "object.set_visible" || method == "tonemap.set" || method.StartsWith("batch.", StringComparison.Ordinal);
+                || method == "object.set_visible" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject

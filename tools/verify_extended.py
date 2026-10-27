@@ -9,11 +9,16 @@ from PIL import Image
 from mcp_client import McpClient
 
 
-def run(game, card):
-    root = Path("D:/Program Files/" + ("KoikatuSunshine" if game == "KKS" else "Koikatu"))
+def run(game, card, game_root, server=None, output=None):
+    repo = Path(__file__).resolve().parents[1]
+    root = Path(game_root).resolve(strict=True)
+    card = str(Path(card).resolve(strict=True))
+    if not (root / "CharaStudio.exe").is_file():
+        raise ValueError("--game-root must contain CharaStudio.exe")
     os.environ["STUDIOMCP_CONNECTION"] = str(root / "UserData/StudioMCP/connection.json")
-    output = Path(".local/evidence/extended-" + game.lower()).resolve()
-    client = McpClient("src/StudioMcp.Host/bin/Release/net8.0/StudioMcp.Host.dll", output)
+    output = Path(output).resolve() if output else repo / ".local" / "evidence" / ("extended-" + game.lower())
+    server = Path(server).resolve(strict=True) if server else repo / "src/StudioMcp.Host/bin/Release/net8.0/StudioMcp.Host.dll"
+    client = McpClient(server, output)
     counter = 0
 
     def call(name, args=None, fail=False):
@@ -167,5 +172,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--game", choices=["KK", "KKS"], required=True)
     parser.add_argument("--card", required=True)
+    parser.add_argument("--game-root", required=True, help="Matching existing game installation; no built-in local path")
+    parser.add_argument("--server", help="Candidate or installed StudioMcp.Host.dll")
+    parser.add_argument("--output", help="Private evidence directory; defaults to ignored .local/evidence")
     args = parser.parse_args()
-    run(args.game, args.card)
+    run(args.game, args.card, args.game_root, args.server, args.output)

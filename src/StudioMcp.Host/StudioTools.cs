@@ -112,6 +112,17 @@ public static class StudioTools
     public static Task<JsonObject> NativeEffectsSet(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement values)
         => bridge.Call("native_effects.set", Args(new { sceneSession, values }));
 
+    [McpServerTool, Description("Read the optional shared KKS DOF provider, camera policy, render counters and supported setters. Missing, incompatible or not-ready providers return available=false; no plugin is installed or enabled.")]
+    public static Task<JsonObject> DofCompatibilityGet(BridgeClient bridge) => bridge.Call("dof_compat.get");
+
+    [McpServerTool, Description("Export the last completed main-camera BSDF opaque color buffer to a diagnostic LDR PNG, without tone mapping or requesting a new buffer/render. Missing resources return available=false. Readback is blocked during capture and bounded to 16777216 pixels. Not a viewport screenshot or DOF/depth acceptance.")]
+    public static Task<JsonObject> DofBufferSnapshot(BridgeClient bridge) => bridge.Call("dof_compat.snapshot");
+
+    [McpServerTool, Description("Set the installed optional KKS DOF provider's scenePolicy (Inherit, Native, BeforeTransparents) or globalMode (Native, BeforeTransparents). Provider owns persistence; native DOF parameters are unchanged. Early mode keeps ALL transparents sharp. Inputs are prevalidated, but provider exceptions can leave partial changes: inspect state before retrying.")]
+    public static Task<JsonObject> DofCompatibilitySet(BridgeClient bridge, string sceneSession,
+        string? scenePolicy = null, string? globalMode = null)
+        => bridge.Call("dof_compat.set", Args(new { sceneSession, scenePolicy, globalMode }));
+
     [McpServerTool, Description("List original KKS sky presets and read the active native sky. Does not add a sky filter item.")]
     public static Task<JsonObject> NativeSkyGet(BridgeClient bridge) => bridge.Call("native_sky.get");
 
@@ -158,11 +169,11 @@ public static class StudioTools
     public static Task<JsonObject> BatchUndo(BridgeClient bridge, string sceneSession, string batchId)
         => bridge.Call("batch.undo", Args(new { sceneSession, batchId }));
 
-    [McpServerTool, Description("Render through Screencap, return an image preview plus the full PNG path. Waits for actual capture completion; does not capture the desktop.")]
+    [McpServerTool, Description("Render through installed Screencap and return a PNG preview plus the full path. alphaMode is None (default), blackout (native cutout) or rgAlpha (native gradual alpha); inspect studio_status.captureOptions for support. withDepth requires None. Waits for completion; never captures the desktop.")]
     public static async Task<CallToolResult> Capture(BridgeClient bridge, string sceneSession,
-        int width = 640, int height = 360, int supersampling = 1, bool withDepth = false)
+        int width = 640, int height = 360, int supersampling = 1, bool withDepth = false, string alphaMode = "None")
     {
-        var started = await bridge.Call("capture.start", Args(new { sceneSession, width, height, supersampling, withDepth }));
+        var started = await bridge.Call("capture.start", Args(new { sceneSession, width, height, supersampling, withDepth, alphaMode }));
         var jobId = started["result"]!["jobId"]!.GetValue<string>();
         var deadline = DateTime.UtcNow.AddMinutes(2);
         while (DateTime.UtcNow < deadline)
