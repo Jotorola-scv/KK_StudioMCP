@@ -69,6 +69,13 @@ Configure an MCP client to run `dotnet` with the built `StudioMcp.Host.dll`. Set
 `STUDIOMCP_CONNECTION` to `<game>/UserData/StudioMCP/connection.json`.
 Read `studio_status` or `scene_snapshot` first; writes must include that scene's `sceneSession`.
 
+For dense scene imports, the host accepts `STUDIOMCP_REQUEST_TIMEOUT_SECONDS` (integer 5-180,
+default 35). This only changes the host's bounded response wait; it does not extend the game's
+30-second queue admission deadline or interrupt a Unity operation already executing. After a
+timeout, inspect the live state before retrying a write. The Procedural Paradise greenhouse
+required a longer wait when ME switched a material shared by over 1,000 renderers. No game DLL
+or ME persistence changes are required for this host-only option.
+
 A typical client configuration is:
 
 ```json

@@ -12,7 +12,12 @@ public sealed class BridgeClient
         var connectionFile = Environment.GetEnvironmentVariable("STUDIOMCP_CONNECTION")
             ?? throw new InvalidOperationException("Set STUDIOMCP_CONNECTION to the game's UserData/StudioMCP/connection.json.");
         var connection = JsonNode.Parse(await File.ReadAllTextAsync(connectionFile))!.AsObject();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(35));
+        var timeoutSetting = Environment.GetEnvironmentVariable("STUDIOMCP_REQUEST_TIMEOUT_SECONDS");
+        var timeoutSeconds = 35;
+        if (!string.IsNullOrWhiteSpace(timeoutSetting)
+            && (!int.TryParse(timeoutSetting, out timeoutSeconds) || timeoutSeconds < 5 || timeoutSeconds > 180))
+            throw new InvalidOperationException("STUDIOMCP_REQUEST_TIMEOUT_SECONDS must be an integer between 5 and 180.");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
         using var socket = new ClientWebSocket();
         await socket.ConnectAsync(new Uri(connection["url"]!.GetValue<string>()), timeout.Token);
         var id = Guid.NewGuid().ToString("N");
