@@ -25,6 +25,8 @@ because it must wait for the end of a rendered frame; the MCP capture tool waits
 
 - ME edits are matched by the provider's material-name and object/part scope. They are not isolated
   to an individual renderer slot when several materials share that name. Inspect `matchingMaterials`.
+- `material_set_render_queue` accepts 0-5000, or -1 to remove the ME override and restore its recorded
+  original queue. That original value may differ from the shader default.
 - Renderer/material handles are ephemeral. Scene reloads invalidate the session. Character and clothing
   mods can also rebuild renderers without reloading a whole scene; fetch fresh handles after such changes.
 - KK shader enumeration is limited to properties described by installed ME metadata. KKS can enumerate

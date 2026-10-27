@@ -118,7 +118,7 @@ These are isolated regression checks, not a new in-game rendering acceptance run
 `material_set_render_queue` calls Material Editor 5.0's `SetMaterialShaderRenderQueue` (or
 `RemoveMaterialShaderRenderQueue` for -1); `materials_list` and `material_inspect` now report the queue.
 On the ProceduralParadise ClubRoom window glass, 2475 survived a checkpoint save and reload from another
-card, and -1 restored the shader default 3000.
+card, and -1 restored the recorded original queue 3000, which also matched that shader's default.
 
 Depth-texture check on the CrystalFantasy glass, with native DOF and paired depth export: tom/BSDFGlass at
 3000 and 2475 and tom/BSDFAlpha (Cutout caster) at 3000 exported byte-identical depth; tom/BSDFAlpha at

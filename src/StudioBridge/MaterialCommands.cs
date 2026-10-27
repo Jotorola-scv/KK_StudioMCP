@@ -38,7 +38,7 @@ namespace StudioMcp.Bridge
                     throw new ArgumentException("renderQueue requires an integer.");
                 var queue = (int)args["renderQueue"];
                 if (queue != -1 && (queue < 0 || queue > 5000))
-                    throw new ArgumentOutOfRangeException("renderQueue", "Use 0-5000, or -1 to restore the shader default.");
+                    throw new ArgumentOutOfRangeException("renderQueue", "Use 0-5000, or -1 to remove the ME override and restore its recorded original queue.");
                 var beforeQueue = target.Material.renderQueue;
                 var call = new List<object>();
                 if (target.Scope == "Item") call.Add(target.ObjectId);
