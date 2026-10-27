@@ -7,3 +7,20 @@ artifacts/
 *.suo
 __pycache__/
 *.py[cod]
+# Never commit live connections, game installs, generated evidence or client-local configuration.
+**/connection.json
+**/connection.json.meta
+**/connection*.local.json
+**/UserData/
+**/BepInEx/
+**/Captures/
+**/Evidence/
+**/Reports/
+**/TestResults/
+*.log
+*.raw
+*.dmp
+*.result.json
+*.receipt.json
+/.codex/
+/.agents/

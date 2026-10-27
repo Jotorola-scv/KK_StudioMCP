@@ -1,0 +1,4 @@
+interface:
+  display_name: "StudioMCP Shader Authoring"
+  short_description: "Use RenderDocs for Studio material and lighting work"
+  default_prompt: "Use $studiomcp-shader-authoring to identify my material's shader version, read its RenderDocs and inspect the ME state before proposing and validating a change."

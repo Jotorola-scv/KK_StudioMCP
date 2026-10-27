@@ -3,6 +3,29 @@
 An independent, local-only MCP bridge for Koikatsu Studio and Koikatsu Sunshine Studio.
 It consumes installed plugins' public APIs; it does not patch Material Editor source or save formats.
 
+## Start here: agents and shader authoring
+
+Read the [agent guide](docs/Agent-Guide.md) before editing a scene. For TomX, TomBSDF or V+ LTS
+materials, follow the [RenderDocs routing guide](skills/studiomcp-shader-authoring/references/shader-renderdocs.md)
+to find the matching project's documentation and understand its lighting, texture channels, units,
+transparency and limitations before choosing values. MCP property introspection is not a shader manual.
+
+The portable [studiomcp-shader-authoring skill](skills/studiomcp-shader-authoring/SKILL.md) carries
+that workflow for agents without this repository or any earlier conversation in context. Copy the
+complete skill folder into your agent's configured skill directory, reload it if needed, then invoke
+`$studiomcp-shader-authoring`. It requires no separately installed skill. A client without skill
+support can read the agent and routing guides directly. Connecting the MCP server alone does not
+automatically load external RenderDocs into the model's context.
+
+Starting from a new machine? The separate
+[scene-pipeline setup package](https://github.com/tomTom1010-IEE/TomBSDF/releases/tag/scene-pipeline-setup-20261027)
+covers Blender, the matching Unity template/Editor bridge and StudioMCP installation. Modern TomX
+and TomBSDF are KKS-first; a functioning KK connection is not proof of their KK compatibility.
+
+See the [release-readiness checklist](docs/Release-Readiness.md) for the reviewed source boundary,
+remaining binary-distribution work and unqualified runtime cases. Documentation is not authorization
+to deploy, replace a scene, rebuild shaders or run the live integration scripts.
+
 ## Current verified state
 
 - Original KoikatuMCP + KKStudioSocket built and exercised in a real KKS process: scene tree,
