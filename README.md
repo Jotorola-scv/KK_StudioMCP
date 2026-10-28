@@ -9,9 +9,9 @@ It consumes installed plugins' public APIs; it does not patch Material Editor so
 back into the next decision. **[Open the ecosystem showcase →](https://tomtom1010-iee.github.io/KK_StudioMCP/)** · [中文](https://tomtom1010-iee.github.io/KK_StudioMCP/#zh)
 
 **[0.1.0 RC1 downloads](https://github.com/tomTom1010-IEE/KK_StudioMCP/releases/tag/v0.1.0-rc1)**:
-Host plus ONE matching KKS/KK bridge. This is a private-access pre-release for acceptance, not a
-stable release. [Install/upgrade](docs/Installation.md), [RC1 acceptance](docs/RC1-Acceptance.md),
-[release notes](docs/ReleaseNotes-0.1.0-rc1.md) and [dependency notices](THIRD-PARTY-NOTICES.md).
+Host plus ONE matching KKS/KK bridge. This is a public release. [Install/upgrade](docs/Installation.md),
+[RC1 acceptance](docs/RC1-Acceptance.md), [release notes](docs/ReleaseNotes-0.1.0-rc1.md) and
+[dependency notices](THIRD-PARTY-NOTICES.md).
 
 ## Showcase
 

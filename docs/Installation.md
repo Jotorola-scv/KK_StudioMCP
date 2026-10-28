@@ -1,7 +1,7 @@
 # StudioMCP 0.1.0 RC1 Installation
 
-This is a private-access pre-release for acceptance, not a stable rendering-plugin bundle. Keep
-your game, mod stack and current scenes backed up. No installer or test runs automatically.
+This is a public release, not a rendering-plugin bundle. Keep your game, mod stack and current
+scenes backed up. No installer or test runs automatically.
 
 ## Choose Downloads
 
@@ -14,10 +14,10 @@ your game, mod stack and current scenes backed up. No installer or test runs aut
   deliberately return unavailable there. Do not interpret a successful build as full KK acceptance.
 - Verify all archives against the release's `SHA256SUMS.txt`. Each ZIP also contains a per-file
   `PACKAGE-MANIFEST.json` with exact source revision and payload hashes. Matching source is available
-  at the same repository tag to recipients with repository access.
+  at the same repository tag.
 
-The repository remains private. Ask the maintainer for access or a matching source distribution;
-do not publish someone else's local game install or connection descriptor as a workaround.
+The repository is public; do not publish someone else's local game install or connection
+descriptor.
 
 ## Prerequisites
 

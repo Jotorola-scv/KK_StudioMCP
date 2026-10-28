@@ -1,7 +1,6 @@
 # StudioMCP 0.1.0 RC1
 
-Private-access pre-release for maintainer acceptance. Repository visibility is unchanged.
-This is not a stable release or a distribution of Tom rendering-provider plugins.
+Public release. This is not a distribution of Tom rendering-provider plugins.
 
 ## Included
 
