@@ -3,10 +3,47 @@
 An independent, local-only MCP bridge for Koikatsu Studio and Koikatsu Sunshine Studio.
 It consumes installed plugins' public APIs; it does not patch Material Editor source or save formats.
 
+<a href="https://tomtom1010-iee.github.io/KK_StudioMCP/"><img src="docs/images/showcase/hero.jpg" width="100%" alt="CrystalFantasy, camera 01: a light pillar inside a glass conservatory, captured in Koikatsu Sunshine Studio"></a>
+
+**The final piece.** Connect asset preparation to actual in-game rendering, then bring the result
+back into the next decision. **[Open the ecosystem showcase →](https://tomtom1010-iee.github.io/KK_StudioMCP/)** · [中文](https://tomtom1010-iee.github.io/KK_StudioMCP/#zh)
+
 **[0.1.0 RC1 downloads](https://github.com/tomTom1010-IEE/KK_StudioMCP/releases/tag/v0.1.0-rc1)**:
 Host plus ONE matching KKS/KK bridge. This is a private-access pre-release for acceptance, not a
 stable release. [Install/upgrade](docs/Installation.md), [RC1 acceptance](docs/RC1-Acceptance.md),
 [release notes](docs/ReleaseNotes-0.1.0-rc1.md) and [dependency notices](THIRD-PARTY-NOTICES.md).
+
+## Showcase
+
+The [ecosystem showcase](https://tomtom1010-iee.github.io/KK_StudioMCP/) walks through the
+0.1.0 RC1 release in thirteen chapters, in English and Chinese: the creative loop, the shared
+foundations, in-game render evidence, and the credits and licenses. Four of its stops:
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><a href="https://tomtom1010-iee.github.io/KK_StudioMCP/#ch-07"><img src="docs/images/showcase/crystalfantasy-vitrine.jpg" alt="CrystalFantasy, camera 03 (vitrine), rendered in game"></a><br><b>07 · CrystalFantasy</b><br>Six views of one scene: materials, composition and camera work.</td>
+    <td width="50%" valign="top"><a href="https://tomtom1010-iee.github.io/KK_StudioMCP/#ch-08"><img src="docs/images/showcase/greenhouse-after.jpg" alt="Greenhouse, camera 1, after the glass change"></a><br><b>08–09 · Greenhouse</b><br>Test a glass hypothesis in fixed views, then compare before and after.</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><a href="https://tomtom1010-iee.github.io/KK_StudioMCP/#ch-10"><img src="docs/images/showcase/rainline-moonlit.jpg" alt="Rainline, moonlit, rendered with TomProbe 0.2.2"></a><br><b>10 · Self-iteration</b><br>Building a scene exposed a TomProbe bug; a parallel agent thread fixed it the same day.</td>
+    <td width="50%" valign="top"><a href="https://tomtom1010-iee.github.io/KK_StudioMCP/#ch-11"><img src="docs/images/showcase/rainline-puddle.jpg" alt="Rainline rainy night: a street-lamp reflection in a puddle with ripple rings"></a><br><b>11 · Material detail</b><br>From a finished view down to puddle and wet-film materials.</td>
+  </tr>
+</table>
+
+### Build the scene, fix the foundation
+
+While lighting Rainline, the agent saw reflections that missed the sky, traced them to TomProbe
+0.2.1 and wrote a fix brief. A parallel agent thread shipped TomProbe 0.2.2 from it, and the first
+agent verified the repair in the same scenes and cameras, on the same day.
+
+```mermaid
+flowchart LR
+  N["01 Notice"] --> I["02 Isolate"] --> R["03 Report"] --> F["04 Fix<br/>parallel agent thread"] --> V["05 Verify"] --> S["06 Ship"]
+  classDef peer stroke:#f5b25c,stroke-width:3px
+  class F peer
+```
+
+[See the loop, the before/after comparison and the other foundation fixes →](https://tomtom1010-iee.github.io/KK_StudioMCP/#ch-10)
 
 ## Start here: agents and shader authoring
 
@@ -140,3 +177,5 @@ Research clones live under `.references/` and are not included in this repositor
 
 StudioMCP is licensed under AGPL-3.0, retaining the destination repository's existing LICENSE.
 Dependency and reference-project licenses remain applicable.
+
+Credits and licenses for the showcase are in [its last chapter](https://tomtom1010-iee.github.io/KK_StudioMCP/#ch-13).
