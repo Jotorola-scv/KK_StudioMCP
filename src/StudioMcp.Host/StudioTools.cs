@@ -28,6 +28,69 @@ public static class StudioTools
         bool includeInactive = false, bool textures = true, string? name = null, bool includeHelpers = false)
         => bridge.Call("mesh.export", Args(new { objectId, scopes, includeInactive, textures, name, includeHelpers }));
 
+    [McpServerTool, Description("List a character's accessories: slot, list ID/name, parent bone, both move corrections (position in maker units, rotation in degrees, scale), colors, hair flag and Hair Accessory Customizer values, plus the valid parent keys. objectId is the Studio character, or 0 in the maker.")]
+    public static Task<JsonObject> AccessoryList(BridgeClient bridge, int objectId = 0, int? slot = null)
+        => bridge.Call("chara.accessory_list", Args(new { objectId, slot }));
+
+    [McpServerTool, Description("Adjust one accessory like the maker's accessory panel, for spliced hair: position/rotation/scale of move correction 0 or 1 (absolute, or relative with add=true), parent bone key, colors (1-4 RGBA), and hair {colorMatch, hairGloss, accessoryColor, outlineColor, glossColor, length} via Hair Accessory Customizer. Saved with the card. Usable in batch_apply as chara.accessory_set for undo.")]
+    public static Task<JsonObject> AccessorySet(BridgeClient bridge, string sceneSession, int slot, int objectId = 0, int correction = 0,
+        float[]? position = null, float[]? rotation = null, float[]? scale = null, bool add = false, string? parent = null,
+        System.Text.Json.JsonElement? colors = null, System.Text.Json.JsonElement? hair = null)
+        => bridge.Call("chara.accessory_set", Args(new { sceneSession, objectId, slot, correction, position, rotation, scale, add, parent, colors, hair }));
+
+    [McpServerTool, Description("Check spliced hair against the head mesh: scalp coverage % (top/back/left/right; forehead reported separately), uncovered gap clusters with the nearest hair piece and a suggested accessory_set move (add=true), and per-piece seams (closest gap, % inside the head, max depth, floating/sunk verdict with a suggested move). slots adds non-hair accessories used as hair. Returns markers for capture_turntable.")]
+    public static Task<JsonObject> HairCheck(BridgeClient bridge, int objectId = 0, int[]? slots = null)
+        => bridge.Call("analysis.hair", Args(new { objectId, slots }));
+
+    [McpServerTool, Description("Sweep body sliders and count where the body pokes through the worn clothing, e.g. sliders {\"bust_size\":[0,1],\"waist_position\":[0,1]} (default: bust, waist, thighs, butt at 0 and 1; max 16 values). Reports poke-through points, max depth, the clothing pieces involved and hotspot positions per step, then restores the sliders.")]
+    public static Task<JsonObject> ClippingSweep(BridgeClient bridge, string sceneSession, int objectId = 0,
+        System.Text.Json.JsonElement? sliders = null, float toleranceMm = 1.5f)
+        => bridge.Call("analysis.clipping_sweep", Args(new { sceneSession, objectId, sliders, toleranceMm }));
+
+    [McpServerTool, Description("Read the character's eye, mouth and eyebrow patterns, openness and blinking; in the maker also the pattern names.")]
+    public static Task<JsonObject> ExpressionGet(BridgeClient bridge, int objectId = 0)
+        => bridge.Call("chara.expression_get", Args(new { objectId }));
+
+    [McpServerTool, Description("Set eye/mouth/eyebrow pattern indices, eyesOpen/mouthOpen (0..1) and blink, e.g. to check hair and bangs over different expressions. Runtime only.")]
+    public static Task<JsonObject> ExpressionSet(BridgeClient bridge, string sceneSession, int objectId = 0, int? eyes = null, int? mouth = null,
+        int? eyebrow = null, float? eyesOpen = null, float? mouthOpen = null, bool? blink = null)
+        => bridge.Call("chara.expression_set", Args(new { sceneSession, objectId, eyes, mouth, eyebrow, eyesOpen, mouthOpen, blink }));
+
+    [McpServerTool, Description("Maker mode: list the maker's preview poses.")]
+    public static Task<JsonObject> PoseList(BridgeClient bridge) => bridge.Call("maker.pose_list");
+
+    [McpServerTool, Description("Maker mode: switch the maker preview pose by index from pose_list, optionally at a normalized animation time (0..1), to check hair and clothes in motion.")]
+    public static Task<JsonObject> PoseSet(BridgeClient bridge, string sceneSession, int index, float time = 0)
+        => bridge.Call("maker.pose_set", Args(new { sceneSession, index, time }));
+
+    [McpServerTool, Description("List the DynamicBone physics on accessories (slot, bone index, root bone, damping, elasticity, stiffness, inertia, radius, weight).")]
+    public static Task<JsonObject> DynamicBonesGet(BridgeClient bridge, int objectId = 0, int? slot = null)
+        => bridge.Call("chara.dynamic_bones", Args(new { objectId, slot }));
+
+    [McpServerTool, Description("Set an accessory DynamicBone's damping/elasticity/stiffness/inertia/weight (0..1) or radius through DynamicBone Editor, which saves them to the card.")]
+    public static Task<JsonObject> DynamicBoneSet(BridgeClient bridge, string sceneSession, int slot, int objectId = 0, int index = 0,
+        float? damping = null, float? elasticity = null, float? stiffness = null, float? inertia = null, float? radius = null, float? weight = null)
+        => bridge.Call("chara.dynamic_bone_set", Args(new { sceneSession, objectId, slot, index, damping, elasticity, stiffness, inertia, radius, weight }));
+
+    [McpServerTool, Description("Read ABMX body bone modifiers (scale, position, rotation, length); filter by bone name, allNames lists modifiable bones. Head/neck scaling often explains misaligned hair.")]
+    public static Task<JsonObject> BonesGet(BridgeClient bridge, int objectId = 0, string? filter = null, bool allNames = false)
+        => bridge.Call("chara.bones_get", Args(new { objectId, filter, allNames }));
+
+    [McpServerTool, Description("Set an ABMX body bone modifier (scale/position/rotation as xyz, length); saved with the card. Usable in batch_apply as chara.bones_set for undo.")]
+    public static Task<JsonObject> BonesSet(BridgeClient bridge, string sceneSession, string bone, int objectId = 0,
+        float[]? scale = null, float[]? position = null, float[]? rotation = null, float? length = null)
+        => bridge.Call("chara.bones_set", Args(new { sceneSession, objectId, bone, scale, position, rotation, length }));
+
+    [McpServerTool, Description("Capture several views around a character in one call and tile them into one contact sheet (default 8 yaws, 0 = front). target full or head; markers are world points drawn as red dots visible through hair (e.g. hair_check markers). The camera is restored afterwards.")]
+    public static async Task<CallToolResult> CaptureTurntable(BridgeClient bridge, string sceneSession, int objectId = 0,
+        float[]? views = null, float pitch = 0, string target = "full", int tileWidth = 360, int tileHeight = 480, int columns = 4,
+        float fov = 23, float? distance = null, System.Text.Json.JsonElement? markers = null, float markerSize = 0.012f)
+    {
+        var started = await bridge.Call("capture.turntable", Args(new { sceneSession, objectId, views, pitch, target, tileWidth, tileHeight,
+            columns, fov, distance, markers, markerSize }));
+        return await WaitForCapture(bridge, started["result"]!["jobId"]!.GetValue<string>());
+    }
+
     [McpServerTool, Description("Maker mode: set a clothing slot's runtime state (0 on, 1 half, 2 half 2, 3 off) to inspect half-off variants. kind is a slot 0-8 or top/bottom/bra/shorts/gloves/pantyhose/socks/shoes_inner/shoes_outer. Not saved to the card.")]
     public static Task<JsonObject> MakerSetClothesState(BridgeClient bridge, string sceneSession, string kind, int state)
         => bridge.Call("maker.clothes_state", Args(new { sceneSession, kind = int.TryParse(kind, out var slot) ? (object)slot : kind, state }));
@@ -182,7 +245,7 @@ public static class StudioTools
     public static Task<JsonObject> SceneRestore(BridgeClient bridge, string sceneSession, string path)
         => bridge.Call("scene.restore", Args(new { sceneSession, path }));
 
-    [McpServerTool, Description("Apply 1-32 operations synchronously. Each is {method,args}; allowlist: me.set Float/Color, chara.shape_set, object.set_transform, camera.set, render.set. Prevalidates and rolls back on failure; returns a batchId for one-level undo.")]
+    [McpServerTool, Description("Apply 1-32 operations synchronously. Each is {method,args}; allowlist: me.set Float/Color, chara.shape_set, chara.accessory_set, chara.bones_set, object.set_transform, camera.set, render.set. Prevalidates and rolls back on failure; returns a batchId for one-level undo.")]
     public static Task<JsonObject> BatchApply(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement operations)
         => bridge.Call("batch.apply", Args(new { sceneSession, operations }));
 
@@ -195,7 +258,11 @@ public static class StudioTools
         int width = 640, int height = 360, int supersampling = 1, bool withDepth = false, string alphaMode = "None")
     {
         var started = await bridge.Call("capture.start", Args(new { sceneSession, width, height, supersampling, withDepth, alphaMode }));
-        var jobId = started["result"]!["jobId"]!.GetValue<string>();
+        return await WaitForCapture(bridge, started["result"]!["jobId"]!.GetValue<string>());
+    }
+
+    private static async Task<CallToolResult> WaitForCapture(BridgeClient bridge, string jobId)
+    {
         var deadline = DateTime.UtcNow.AddMinutes(2);
         while (DateTime.UtcNow < deadline)
         {

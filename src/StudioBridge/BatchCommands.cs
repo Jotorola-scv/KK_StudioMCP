@@ -43,6 +43,8 @@ namespace StudioMcp.Bridge
                     });
                 }
                 else if (op == "chara.shape_set") restore.Add(_plugin.Characters.PrepareUndo(values));
+                else if (op == "chara.accessory_set") restore.Add(_plugin.Accessories.PrepareUndo(values));
+                else if (op == "chara.bones_set") restore.Add(_plugin.Bones.PrepareUndo(values));
                 else if (!Plugin.InStudio) restore.Add(_plugin.Maker.PrepareUndo(op, values));
                 else restore.Add(_plugin.Scene.PrepareUndo(op, values));
             }

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>StudioMCP Maker Edition</title>
+<style>
+  :root {
+    --bg: #0f1220;
+    --panel: #171b2e;
+    --line: #2a3150;
+    --text: #e9ecf8;
+    --muted: #9aa3c7;
+    --pink: #ff6fa8;
+    --violet: #8f80ff;
+    --cyan: #5fd4ff;
+    --green: #6fe3a6;
+    --amber: #ffc46b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 2380px; overflow: hidden; }
+  body {
+    background:
+      radial-gradient(900px 500px at 85% -5%, rgba(143,128,255,.22), transparent 60%),
+      radial-gradient(700px 420px at -5% 10%, rgba(255,111,168,.16), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Microsoft JhengHei UI", "Microsoft JhengHei", "Segoe UI", sans-serif;
+    padding: 64px 72px 0;
+  }
+  .en { font-family: "Segoe UI", "Microsoft JhengHei UI", sans-serif; }
+  code { font-family: Consolas, monospace; }
+  /* hero */
+  .hero { display: flex; justify-content: space-between; align-items: flex-end; }
+  .eyebrow { color: var(--pink); font-weight: 700; letter-spacing: .18em; font-size: 15px; text-transform: uppercase; }
+  h1 { font-size: 76px; font-weight: 800; line-height: 1.05; margin-top: 12px; letter-spacing: -.01em; }
+  h1 .grad { background: linear-gradient(90deg, var(--pink), var(--violet)); -webkit-background-clip: text; color: transparent; }
+  .tag-zh { font-size: 28px; margin-top: 18px; font-weight: 700; }
+  .tag-en { font-size: 20px; margin-top: 6px; color: var(--muted); }
+  .badges { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+  .badge-row { display: flex; gap: 10px; }
+  .badge { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 8px 18px; font-size: 16px; font-weight: 700; }
+  .badge.hot { border-color: transparent; background: linear-gradient(90deg, var(--pink), var(--violet)); color: #fff; }
+  /* visuals */
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 44px; }
+  .shot { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
+  .shot .img { height: 380px; background: #000 center / cover no-repeat; position: relative; }
+  .shot .img.blender { background-color: #3a3a3a; background-size: contain; }
+  .pill { position: absolute; top: 16px; left: 16px; background: rgba(15,18,32,.82); border: 1px solid var(--line);
+          border-radius: 999px; padding: 6px 14px; font-size: 14px; font-weight: 700; color: var(--cyan); }
+  .lr { position: absolute; bottom: 14px; font-size: 14px; font-weight: 700; color: #fff; background: rgba(15,18,32,.7);
+        padding: 4px 12px; border-radius: 8px; }
+  .shot .cap { padding: 16px 24px 20px; }
+  .cap-zh { font-size: 20px; font-weight: 700; }
+  .cap-en { font-size: 15.5px; color: var(--muted); margin-top: 4px; }
+  /* legend */
+  .legend { display: flex; align-items: center; gap: 22px; margin-top: 40px; font-size: 16px; color: var(--muted); }
+  .legend h2 { font-size: 30px; color: var(--text); margin-right: 8px; }
+  .legend h2 span { font-size: 18px; color: var(--muted); font-weight: 600; margin-left: 10px; }
+  /* scope tags */
+  .scope { display: inline-block; font-size: 12.5px; font-weight: 800; border-radius: 999px; padding: 3px 11px; letter-spacing: .02em; }
+  .both { background: rgba(111,227,166,.14); color: var(--green); border: 1px solid rgba(111,227,166,.35); }
+  .maker { background: rgba(255,111,168,.14); color: var(--pink); border: 1px solid rgba(255,111,168,.35); }
+  .studio { background: rgba(255,196,107,.14); color: var(--amber); border: 1px solid rgba(255,196,107,.35); }
+  /* feature cards */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px 18px; }
+  .card.wide { grid-column: span 2; }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; flex: none;
+         background: linear-gradient(135deg, rgba(255,111,168,.25), rgba(143,128,255,.25)); }
+  .head .titles { flex: 1; }
+  .head h3 { font-size: 22px; line-height: 1.2; }
+  .head .h3-en { font-size: 14.5px; color: var(--pink); font-weight: 700; }
+  .lead { font-size: 15px; color: var(--muted); margin-top: 12px; line-height: 1.55; }
+  .tools { margin-top: 12px; display: grid; gap: 10px; }
+  .card.wide .tools { grid-template-columns: 1fr 1fr; column-gap: 26px; }
+  .tool { border-top: 1px solid var(--line); padding-top: 9px; }
+  .tool code { color: var(--cyan); font-size: 14.5px; font-weight: 700; }
+  .tool .zh { font-size: 15px; margin-top: 3px; line-height: 1.45; }
+  .tool .e { font-size: 13.5px; color: var(--muted); margin-top: 1px; line-height: 1.4; }
+  footer { display: flex; justify-content: space-between; align-items: center; margin-top: 28px; padding: 22px 0;
+           border-top: 1px solid var(--line); font-size: 16px; color: var(--muted); }
+  footer b { color: var(--text); }
+</style>
+</head>
+<body>
+  <section class="hero">
+    <div>
+      <div class="eyebrow en">Koikatsu Sunshine · Koikatsu · MCP</div>
+      <h1>StudioMCP <span class="grad">Maker 版</span></h1>
+      <div class="tag-zh">讓 AI agent 直接檢查、修正戀活角色的材質、服裝與身型</div>
+      <div class="tag-en en">Let AI agents inspect and fix Koikatsu characters — in Studio and the main-game character maker</div>
+    </div>
+    <div class="badges en">
+      <div class="badge-row"><span class="badge hot">KKS</span><span class="badge hot">KK</span></div>
+      <div class="badge-row"><span class="badge">Claude</span><span class="badge">Codex</span></div>
+      <div class="badge-row"><span class="badge">AGPL-3.0</span></div>
+    </div>
+  </section>
+
+  <section class="shots">
+    <div class="shot">
+      <div class="img" style="background-image:url('shape.png')">
+        <span class="pill en">shape_set → capture</span>
+        <span class="lr" style="left:16px">原始 Original</span>
+        <span class="lr" style="right:16px">胸部 1.0 Bust 1.0</span>
+      </div>
+      <div class="cap">
+        <div class="cap-zh">調整身型滑桿，馬上看到服裝穿模</div>
+        <div class="cap-en en">Push the body sliders and spot clipping instantly — then undo in one step</div>
+      </div>
+    </div>
+    <div class="shot">
+      <div class="img blender" style="background-image:url('blender_strip.png')">
+        <span class="pill en">mesh_export → Blender</span>
+      </div>
+      <div class="cap">
+        <div class="cap-zh">匯出目前的網格，在 Blender 量測穿模與權重</div>
+        <div class="cap-en en">Export the posed, shaped meshes (OBJ + textures) and inspect the fit in Blender</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="legend">
+    <h2>功能一覽<span class="en">All features</span></h2>
+    <span><span class="scope both en">STUDIO + MAKER</span> 兩邊通用 <span class="en">Both</span></span>
+    <span><span class="scope maker en">MAKER</span> 本體 Maker <span class="en">Maker only</span></span>
+    <span><span class="scope studio en">STUDIO</span> 僅限 Studio <span class="en">Studio only</span></span>
+  </section>
+
+  <section class="grid">
+    <!-- character & outfit -->
+    <div class="card">
+      <div class="head"><div class="ico">🧍</div>
+        <div class="titles"><h3>角色與服裝</h3><div class="h3-en en">Character &amp; outfit</div></div>
+        <span class="scope maker en">MAKER</span></div>
+      <div class="lead">同一顆外掛在本體自動切換成 Maker 模式，與 Studio 可同時開。<br><span class="en">The same plugin switches to maker mode in the main game.</span></div>
+      <div class="tools">
+        <div class="tool"><code>maker_snapshot</code>
+          <div class="zh">角色名稱、目前服裝套數，服裝 9 格／頭髮／飾品的清單 ID、名稱與穿脫狀態</div>
+          <div class="e en">Name, outfit, list IDs and states of all clothing, hair and accessory slots</div></div>
+        <div class="tool"><code>maker_set_clothes_state</code>
+          <div class="zh">切換穿著／半脫／半脫 2／脫掉，檢查半脫穿模</div>
+          <div class="e en">On, half-off and off per slot to check half-off clipping</div></div>
+      </div>
+    </div>
+    <!-- shapes -->
+    <div class="card">
+      <div class="head"><div class="ico">📐</div>
+        <div class="titles"><h3>身型與臉型滑桿</h3><div class="h3-en en">Body &amp; face sliders</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">44 個身型、52 個臉型，可用編號、英文鍵名或遊戲內名稱指定，會存進卡片。<br><span class="en">By index, English key or in-game name; saved with the card.</span></div>
+      <div class="tools">
+        <div class="tool"><code>shape_get</code>
+          <div class="zh">讀取所有滑桿的目前數值</div>
+          <div class="e en">Read every slider value</div></div>
+        <div class="tool"><code>shape_set</code>
+          <div class="zh">像 Maker 一樣調整，例如 <code style="color:var(--cyan);font-size:13px">{"bust_size": 0.9}</code>；同步 Maker 畫面，相容 Pushup</div>
+          <div class="e en">Set like the maker does; refreshes its sliders, Pushup-safe</div></div>
+      </div>
+    </div>
+    <!-- mesh export -->
+    <div class="card">
+      <div class="head"><div class="ico">📦</div>
+        <div class="titles"><h3>網格匯出</h3><div class="h3-en en">Mesh export</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">匯出 OBJ + MTL + 貼圖 PNG，直接匯入 Blender 檢查穿模與權重。<br><span class="en">OBJ + MTL + texture PNGs, ready for Blender.</span></div>
+      <div class="tools">
+        <div class="tool"><code>mesh_export</code>
+          <div class="zh">姿勢、身型、表情都已套用；可只選身體、服裝、頭髮或飾品</div>
+          <div class="e en">Pose, shapes and blend shapes baked; pick body, clothing, hair or accessories</div></div>
+        <div class="tool"><code>includeInactive · includeHelpers</code>
+          <div class="zh">預設略過脫掉的部位與陰影、高亮等輔助網格</div>
+          <div class="e en">Hidden parts and helper meshes are skipped unless asked</div></div>
+      </div>
+    </div>
+    <!-- materials (wide) -->
+    <div class="card wide">
+      <div class="head"><div class="ico">🎨</div>
+        <div class="titles"><h3>材質與 Shader</h3><div class="h3-en en">Materials &amp; shaders</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">全部透過 Material Editor 修改並保存，存卡或存場景時一起寫入；材質依身體、頭髮、服裝、飾品與部位格號分類。<br><span class="en">Everything goes through Material Editor and is saved with the card or scene.</span></div>
+      <div class="tools">
+        <div class="tool"><code>materials_list</code>
+          <div class="zh">列出所有網格、材質槽與 shader</div>
+          <div class="e en">Every renderer, material slot and shader</div></div>
+        <div class="tool"><code>material_inspect</code>
+          <div class="zh">讀取 shader 的所有屬性與目前數值</div>
+          <div class="e en">All shader properties and current values</div></div>
+        <div class="tool"><code>material_set</code>
+          <div class="zh">修改顏色（RGBA）或數值屬性</div>
+          <div class="e en">Set a color or float property</div></div>
+        <div class="tool"><code>material_set_shader</code>
+          <div class="zh">更換為已註冊的 shader</div>
+          <div class="e en">Switch to any registered shader</div></div>
+        <div class="tool"><code>material_import_texture</code>
+          <div class="zh">匯入 PNG／JPEG 貼圖，存進卡片</div>
+          <div class="e en">Import a PNG/JPEG texture into the card</div></div>
+        <div class="tool"><code>material_texture_transform</code>
+          <div class="zh">調整貼圖平鋪與偏移</div>
+          <div class="e en">Texture tiling and offset</div></div>
+        <div class="tool"><code>material_set_render_queue</code>
+          <div class="zh">調整渲染順序，處理透明穿插</div>
+          <div class="e en">Render queue for transparency sorting</div></div>
+        <div class="tool"><code>material_reset</code>
+          <div class="zh">還原某屬性的原始值</div>
+          <div class="e en">Restore a property's original value</div></div>
+      </div>
+    </div>
+    <!-- camera & capture -->
+    <div class="card">
+      <div class="head"><div class="ico">📸</div>
+        <div class="titles"><h3>鏡頭、截圖與診斷</h3><div class="h3-en en">Camera, capture &amp; diagnostics</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="tools">
+        <div class="tool"><code>camera_get · camera_set</code>
+          <div class="zh">讀取與設定注視點、角度、距離、FOV</div>
+          <div class="e en">Pivot, rotation, distance and field of view</div></div>
+        <div class="tool"><code>capture</code>
+          <div class="zh">透過 Screencap 渲染不含 UI 的截圖，可去背或半透明去背</div>
+          <div class="e en">Clean Screencap renders, with cutout or gradual alpha</div></div>
+        <div class="tool"><code>camera_slot_save · load</code> <span class="scope studio en">STUDIO</span>
+          <div class="zh">存取 Studio 的鏡頭槽位</div>
+          <div class="e en">Studio camera slots</div></div>
+        <div class="tool"><code>render_get</code>
+          <div class="zh">環境光、霧、相機背景等設定</div>
+          <div class="e en">Ambient light, fog, camera background</div></div>
+        <div class="tool"><code>render_diagnostics</code>
+          <div class="zh">場景中的燈光、反射探針、粒子、相機深度模式，找出偏暗或偏色的原因</div>
+          <div class="e en">Lights, reflection probes, particles and depth mode</div></div>
+        <div class="tool"><code>studio_status</code>
+          <div class="zh">連線、模式、寫入權限與已安裝的外掛</div>
+          <div class="e en">Connection, mode, write access, providers</div></div>
+      </div>
+    </div>
+    <!-- batch & safety -->
+    <div class="card">
+      <div class="head"><div class="ico">↩️</div>
+        <div class="titles"><h3>批次修改與安全</h3><div class="h3-en en">Batches &amp; safety</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="tools">
+        <div class="tool"><code>batch_apply</code>
+          <div class="zh">一次執行最多 32 個材質、身型、鏡頭修改；先全部驗證，失敗自動回滾</div>
+          <div class="e en">Up to 32 edits, prevalidated, rolled back on failure</div></div>
+        <div class="tool"><code>batch_undo</code>
+          <div class="zh">一鍵復原最近一次批次</div>
+          <div class="e en">One-step undo of the last batch</div></div>
+        <div class="tool"><code>sceneSession · token</code>
+          <div class="zh">換角色或換場景後拒絕舊的修改；只接受本機連線，預設唯讀</div>
+          <div class="e en">Stale edits rejected; loopback only, read-only by default</div></div>
+      </div>
+    </div>
+    <!-- studio scene (wide) -->
+    <div class="card wide">
+      <div class="head"><div class="ico">🎬</div>
+        <div class="titles"><h3>Studio 場景與環境</h3><div class="h3-en en">Studio scene &amp; environment</div></div>
+        <span class="scope studio en">STUDIO</span></div>
+      <div class="tools">
+        <div class="tool"><code>scene_snapshot · catalog_search</code>
+          <div class="zh">讀取場景物件、位置與鏡頭；搜尋物件目錄</div>
+          <div class="e en">Scene objects and camera; search the item catalog</div></div>
+        <div class="tool"><code>add_item · add_light · add_character</code>
+          <div class="zh">新增道具、燈光與角色卡</div>
+          <div class="e en">Add items, lights and character cards</div></div>
+        <div class="tool"><code>light_set</code>
+          <div class="zh">燈光顏色、強度、範圍、陰影、照射圖層</div>
+          <div class="e en">Light color, intensity, range, shadows, culling mask</div></div>
+        <div class="tool"><code>set_transform · set_visible</code>
+          <div class="zh">移動、旋轉、縮放與顯示／隱藏物件</div>
+          <div class="e en">Move, rotate, scale, show or hide objects</div></div>
+        <div class="tool"><code>scene_checkpoint · scene_restore</code>
+          <div class="zh">建立場景存檔點，隨時還原</div>
+          <div class="e en">Save a scene checkpoint and roll back to it</div></div>
+        <div class="tool"><code>native_effects · native_sky · skybox · tonemap · dof</code>
+          <div class="zh">Studio 內建特效、天空、天空盒、色調映射與景深</div>
+          <div class="e en">Native effects, sky, skybox, tonemapping and DOF</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="en">
+    <span><b>github.com/Jotorola-scv/KK_StudioMCP</b></span>
+    <span>Based on tomTom1010-IEE/KK_StudioMCP · AGPL-3.0</span>
+  </footer>
+</body>
+</html>

@@ -28,6 +28,7 @@
     <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(ManagedRoot)/UnityEngine.ImageConversionModule.dll" Private="false" />
     <Reference Include="UnityEngine.AnimationModule" HintPath="$(ManagedRoot)/UnityEngine.AnimationModule.dll" Private="false" />
     <Reference Include="UnityEngine.ParticleSystemModule" HintPath="$(ManagedRoot)/UnityEngine.ParticleSystemModule.dll" Private="false" />
+    <Reference Include="UnityEngine.PhysicsModule" HintPath="$(ManagedRoot)/UnityEngine.PhysicsModule.dll" Private="false" />
   </ItemGroup>
   <Target Name="CheckGameRoot" BeforeTargets="ResolveReferences">
     <Error Condition="!Exists('$(ManagedRoot)/Assembly-CSharp.dll')" Text="Pass -p:GameRoot=the game installation directory." />

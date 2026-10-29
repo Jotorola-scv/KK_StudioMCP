@@ -80,7 +80,19 @@ namespace StudioMcp.Bridge
             };
         }
 
-        private ChaControl Character(int id)
+        internal static int BodyIndex(string key)
+        {
+            int index;
+            if (int.TryParse(key, NumberStyles.Integer, CultureInfo.InvariantCulture, out index) && index >= 0 && index < BodyKeys.Length) return index;
+            index = Array.IndexOf(BodyKeys, key);
+            if (index < 0) index = Array.IndexOf(ChaFileDefine.cf_bodyshapename, key);
+            if (index < 0) throw new ArgumentException("Unknown body shape: " + key);
+            return index;
+        }
+
+        internal static string BodyKey(int index) => index < BodyKeys.Length ? BodyKeys[index] : index.ToString(CultureInfo.InvariantCulture);
+
+        internal ChaControl Character(int id)
         {
             if (!Plugin.InStudio) return MakerCommands.Character();
             var character = _plugin.Scene.GetObject(id) as OCIChar;

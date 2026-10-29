@@ -42,6 +42,10 @@ namespace StudioMcp.Bridge
         internal BatchCommands Batches;
         internal MakerCommands Maker;
         internal CharacterCommands Characters;
+        internal AccessoryCommands Accessories;
+        internal MotionCommands Motion;
+        internal BoneCommands Bones;
+        internal AnalysisCommands Analysis;
         // The main game exposes only the character maker: one character, no Studio scene.
         internal static readonly bool InStudio = Paths.ProcessName == "CharaStudio";
         internal string Session = Guid.NewGuid().ToString("N");
@@ -78,6 +82,10 @@ namespace StudioMcp.Bridge
             Tone = new ToneCommands();
             Maker = new MakerCommands(this);
             Characters = new CharacterCommands(this);
+            Accessories = new AccessoryCommands(this);
+            Motion = new MotionCommands(this);
+            Bones = new BoneCommands(this);
+            Analysis = new AnalysisCommands(this);
             if (InStudio) StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
             Batches = new BatchCommands(this);
             _originalBackground = Application.runInBackground;
@@ -199,6 +207,11 @@ namespace StudioMcp.Bridge
             if (method.StartsWith("batch.", StringComparison.Ordinal)) return Batches.Execute(method, args);
             if (method == "render.get") return Rendering.State();
             if (method == "render.diagnostics") return Rendering.Diagnostics();
+            if (method.StartsWith("chara.accessory_", StringComparison.Ordinal)) return Accessories.Execute(method, args);
+            if (method.StartsWith("chara.bones_", StringComparison.Ordinal)) return Bones.Execute(method, args);
+            if (method.StartsWith("chara.expression_", StringComparison.Ordinal) || method.StartsWith("chara.dynamic_bone", StringComparison.Ordinal)
+                || method.StartsWith("maker.pose_", StringComparison.Ordinal)) return Motion.Execute(method, args);
+            if (method.StartsWith("analysis.", StringComparison.Ordinal)) return Analysis.Execute(method, args);
             if (method.StartsWith("chara.", StringComparison.Ordinal) || method == "mesh.export") return Characters.Execute(method, args);
             if (!InStudio || method.StartsWith("maker.", StringComparison.Ordinal)) return Maker.Execute(method, args);
             if (method == "render.set") return Rendering.Apply((JObject)args["values"]);
@@ -224,7 +237,8 @@ namespace StudioMcp.Bridge
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
                 || method == "me.render_queue"
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
-                || method == "object.set_visible" || method == "maker.clothes_state" || method == "chara.shape_set" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
+                || method == "object.set_visible" || method == "maker.clothes_state" || method == "chara.shape_set" || method == "chara.accessory_set" || method == "chara.bones_set"
+                || method == "chara.expression_set" || method == "chara.dynamic_bone_set" || method == "maker.pose_set" || method == "analysis.clipping_sweep" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -78,6 +79,7 @@ namespace StudioMcp.Bridge
                 if (!_jobs.TryGetValue((string)args["jobId"], out job)) throw new ArgumentException("Unknown capture job.");
                 return job.DeepClone();
             }
+            if (method == "capture.turntable") return StartTurntable(args);
             if (method != "capture.start") throw new ArgumentException("Unknown capture method.");
             if (Busy) throw new InvalidOperationException("Another capture is in progress.");
             if ((string)args["sceneSession"] != _plugin.Session) throw new InvalidOperationException("Scene session changed.");
@@ -199,6 +201,154 @@ namespace StudioMcp.Bridge
                 try { if (hooksStarted) api.Post.Invoke(null, null); }
                 catch (Exception error) { record["state"] = "failed"; record["error"] = error.GetBaseException().Message; }
                 finally { Busy = false; }
+            }
+        }
+
+        // Turntable: one Screencap render per view around a character, tiled into a contact sheet. Added in the maker-support fork.
+        private JObject StartTurntable(JObject args)
+        {
+            if (Busy) throw new InvalidOperationException("Another capture is in progress.");
+            if ((string)args["sceneSession"] != _plugin.Session) throw new InvalidOperationException("Scene session changed.");
+            string reason;
+            var api = Resolve(out reason);
+            if (api == null) throw new NotSupportedException(reason);
+            var views = args["views"] is JArray list ? list.Select(SceneCommands.Number).ToArray() : new[] { 0f, 45, 90, 135, 180, 225, 270, 315 };
+            if (views.Length == 0 || views.Length > 16) throw new ArgumentException("views takes 1-16 yaw angles (0 = front).");
+            var pitch = args["pitch"] == null ? 0f : SceneCommands.Number(args["pitch"]);
+            if (pitch < -89 || pitch > 89) throw new ArgumentOutOfRangeException("pitch");
+            var width = (int?)args["tileWidth"] ?? 360;
+            var height = (int?)args["tileHeight"] ?? 480;
+            var columns = Math.Max(1, Math.Min(views.Length, (int?)args["columns"] ?? 4));
+            var rows = (views.Length + columns - 1) / columns;
+            if (width < 64 || height < 64 || width * columns > 4096 || height * rows > 4096)
+                throw new ArgumentOutOfRangeException("tileWidth", "The sheet must stay within 4096x4096.");
+            var target = (string)args["target"] ?? "full";
+            if (target != "full" && target != "head") throw new ArgumentException("target is full or head.");
+            var fov = args["fov"] == null ? 23f : SceneCommands.Number(args["fov"]);
+            if (fov < 5 || fov > 90) throw new ArgumentOutOfRangeException("fov");
+
+            var character = _plugin.Characters.Character((int?)args["objectId"] ?? 0);
+            Bounds bounds;
+            if (target == "head") bounds = character.rendFace.bounds;
+            else
+            {
+                var renderers = character.GetComponentsInChildren<Renderer>(false).Where(r => r.enabled && !(r is ParticleSystemRenderer)).ToArray();
+                bounds = renderers[0].bounds;
+                foreach (var r in renderers.Skip(1)) bounds.Encapsulate(r.bounds);
+            }
+            var size = Mathf.Max(bounds.size.y, Mathf.Max(bounds.size.x, bounds.size.z) * height / (float)width);
+            var distance = args["distance"] == null ? size * 0.5f * 1.12f / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) : SceneCommands.Number(args["distance"]);
+            var markers = args["markers"] as JArray ?? new JArray();
+            if (markers.Count > 64) throw new ArgumentException("At most 64 markers.");
+            foreach (var m in markers) SceneCommands.Vector(m);
+            var markerSize = args["markerSize"] == null ? 0.012f : SceneCommands.Number(args["markerSize"]);
+
+            var id = Guid.NewGuid().ToString("N");
+            var record = new JObject { ["jobId"] = id, ["state"] = "waiting", ["sceneSession"] = _plugin.Session,
+                ["views"] = new JArray(views), ["columns"] = columns, ["width"] = width * columns, ["height"] = height * rows };
+            _jobs.Add(id, record);
+            _jobOrder.Enqueue(id);
+            while (_jobOrder.Count > 8) _jobs.Remove(_jobOrder.Dequeue());
+            Busy = true;
+            var frontYaw = character.transform.eulerAngles.y + 180f;
+            var cameras = views.Select(yaw => new JObject { ["pivot"] = SceneCommands.Json(bounds.center),
+                ["rotation"] = new JArray(pitch, frontYaw + yaw, 0f), ["distance"] = new JArray(0f, 0f, -distance), ["fov"] = fov }).ToArray();
+            if (_plugin.StartCoroutine(Turntable(record, api, cameras, width, height, columns, rows, character.rendFace.gameObject.layer, markers, markerSize)) == null)
+            {
+                Busy = false;
+                throw new InvalidOperationException("The capture coroutine did not start.");
+            }
+            return new JObject { ["jobId"] = id, ["state"] = "waiting" };
+        }
+
+        private IEnumerator Turntable(JObject record, NativeApi api, JObject[] cameras, int width, int height, int columns, int rows,
+            int layer, JArray markers, float markerSize)
+        {
+            var saved = (JObject)_plugin.Dispatch("camera.get", new JObject());
+            var spawned = new List<GameObject>();
+            Texture2D sheet = null;
+            RenderTexture preview = null;
+            var previous = RenderTexture.active;
+            var none = Enum.Parse(api.Alpha, "None");
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var failed = false;
+            try
+            {
+                // ZTest Always keeps gap markers visible from every side, even behind hair.
+                var material = new Material(Shader.Find("Hidden/Internal-Colored")) { color = new Color(1f, 0.1f, 0.25f, 1f) };
+                material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+                material.renderQueue = 4000;
+                foreach (var m in markers)
+                {
+                    var dot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    UnityEngine.Object.Destroy(dot.GetComponent<Collider>());
+                    dot.layer = layer;
+                    dot.transform.position = SceneCommands.Vector(m);
+                    dot.transform.localScale = Vector3.one * markerSize;
+                    dot.GetComponent<Renderer>().sharedMaterial = material;
+                    spawned.Add(dot);
+                }
+                sheet = new Texture2D(width * columns, height * rows, TextureFormat.RGBA32, false);
+                record["state"] = "running";
+            }
+            catch (Exception error) { failed = true; record["state"] = "failed"; record["error"] = error.GetBaseException().Message; }
+
+            for (var i = 0; i < cameras.Length && !failed; i++)
+            {
+                try { _plugin.Dispatch("camera.set", cameras[i]); }
+                catch (Exception error) { failed = true; record["state"] = "failed"; record["error"] = error.GetBaseException().Message; break; }
+                // Let the camera controller apply the new orbit before rendering.
+                yield return null;
+                yield return new WaitForEndOfFrame();
+                RenderTexture render = null;
+                try
+                {
+                    api.Pre.Invoke(null, null);
+                    try { render = (RenderTexture)api.Render.Invoke(null, new object[] { (int?)width, (int?)height, (int?)1, none }); }
+                    finally { api.Post.Invoke(null, null); }
+                    if (render == null) throw new InvalidOperationException("Screencap returned no image; inspect the game log.");
+                    RenderTexture.active = render;
+                    sheet.ReadPixels(new Rect(0, 0, width, height), (i % columns) * width, (rows - 1 - i / columns) * height);
+                }
+                catch (Exception error) { failed = true; record["state"] = "failed"; record["error"] = (error as TargetInvocationException)?.InnerException?.Message ?? error.Message; }
+                finally
+                {
+                    RenderTexture.active = previous;
+                    if (render != null) RenderTexture.ReleaseTemporary(render);
+                }
+            }
+            try
+            {
+                if (!failed)
+                {
+                    sheet.Apply(false, false);
+                    var png = sheet.EncodeToPNG();
+                    var path = Path.Combine(_plugin.OutputRoot, (string)record["jobId"] + "-turntable.png");
+                    File.WriteAllBytes(path, png);
+                    var previewWidth = Math.Min(1600, sheet.width);
+                    if (previewWidth != sheet.width)
+                    {
+                        preview = RenderTexture.GetTemporary(previewWidth, Math.Max(1, sheet.height * previewWidth / sheet.width), 0, RenderTextureFormat.ARGB32);
+                        Graphics.Blit(sheet, preview);
+                        record["previewBase64"] = Convert.ToBase64String(Encode(preview));
+                    }
+                    else record["previewBase64"] = Convert.ToBase64String(png);
+                    record["path"] = path;
+                    record["bytes"] = png.Length;
+                    record["elapsedMs"] = watch.ElapsedMilliseconds;
+                    record["state"] = "complete";
+                }
+            }
+            catch (Exception error) { record["state"] = "failed"; record["error"] = error.GetBaseException().Message; }
+            finally
+            {
+                RenderTexture.active = previous;
+                if (preview != null) RenderTexture.ReleaseTemporary(preview);
+                if (sheet != null) UnityEngine.Object.Destroy(sheet);
+                foreach (var dot in spawned) UnityEngine.Object.Destroy(dot);
+                try { _plugin.Dispatch("camera.set", saved); }
+                catch (Exception error) { UnityEngine.Debug.LogWarning("[StudioMCP] Turntable camera restore: " + error.Message); }
+                Busy = false;
             }
         }
 
