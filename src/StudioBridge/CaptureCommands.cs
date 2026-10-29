@@ -254,6 +254,8 @@ namespace StudioMcp.Bridge
             foreach (var m in markers) SceneCommands.Vector(m);
             var markerSize = args["markerSize"] == null ? 0.012f : SceneCommands.Number(args["markerSize"]);
             var settle = Mathf.Clamp((int?)args["settleFrames"] ?? 10, 1, 240);
+            // Measured on KKS: tiles stay ghosted for well over 30 frames after a camera move, clean after about 1.7 s (120 frames); default 2 s.
+            var settleSeconds = args["settleSeconds"] == null ? 2f : Mathf.Clamp(SceneCommands.Number(args["settleSeconds"]), 0f, 10f);
 
             var id = Guid.NewGuid().ToString("N");
             var record = new JObject { ["jobId"] = id, ["state"] = "waiting", ["sceneSession"] = _plugin.Session,
@@ -265,7 +267,7 @@ namespace StudioMcp.Bridge
             var frontYaw = character.transform.eulerAngles.y + 180f;
             var cameras = views.Select(yaw => new JObject { ["pivot"] = SceneCommands.Json(bounds.center),
                 ["rotation"] = new JArray(pitch, frontYaw + yaw, 0f), ["distance"] = new JArray(0f, 0f, -distance), ["fov"] = fov }).ToArray();
-            if (_plugin.StartCoroutine(Turntable(record, api, cameras, width, height, columns, rows, character.rendFace.gameObject.layer, markers, markerSize, settle)) == null)
+            if (_plugin.StartCoroutine(Turntable(record, api, cameras, width, height, columns, rows, character.rendFace.gameObject.layer, markers, markerSize, settle, settleSeconds)) == null)
             {
                 Busy = false;
                 throw new InvalidOperationException("The capture coroutine did not start.");
@@ -274,7 +276,7 @@ namespace StudioMcp.Bridge
         }
 
         private IEnumerator Turntable(JObject record, NativeApi api, JObject[] cameras, int width, int height, int columns, int rows,
-            int layer, JArray markers, float markerSize, int settle)
+            int layer, JArray markers, float markerSize, int settle, float settleSeconds)
         {
             var saved = (JObject)_plugin.Dispatch("camera.get", new JObject());
             var spawned = new List<GameObject>();
@@ -322,7 +324,8 @@ namespace StudioMcp.Bridge
                     last = Camera.main.transform.position;
                     lastRotation = Camera.main.transform.rotation;
                 }
-                for (var f = 0; f < settle; f++) yield return null;
+                var settled = Time.unscaledTime + settleSeconds;
+                for (var f = 0; f < settle || Time.unscaledTime < settled; f++) yield return null;
                 yield return new WaitForEndOfFrame();
                 RenderTexture render = null;
                 try

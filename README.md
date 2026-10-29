@@ -71,7 +71,12 @@ KK 與 KKS、Studio 與本體都可以同時開，各自使用不同的埠與 MC
 | `clipping_sweep` | 自動把身型滑桿推到指定數值，計算身體從服裝（也可加入飾品服裝）穿出的點數、深度、部位與熱點，結束後還原 |
 | `expression_get` / `expression_set` | 切換眼、嘴、眉的表情與開合，檢查瀏海與表情的搭配 |
 | `dynamic_bones_get` / `dynamic_bone_set` | 讀取與調整飾品（髮片）物理的阻尼、彈性、硬度、慣性、半徑；透過 DynamicBone Editor 存進卡片 |
-| `bones_get` / `bones_set` | 讀取與調整 ABMX 骨骼的縮放、位置、旋轉、長度（頭部、頸部縮放常是髮片對不齊的原因）；存進卡片 |
+| `bones_get` / `bones_set` | 讀取與調整 ABMX 骨骼的縮放、位置、旋轉、長度（頭部、頸部縮放常是髮片對不齊的原因）；加上 `slot` 可調整髮片自己的骨骼（例如縮短尾端）；存進卡片 |
+| `hair_mask_preview` | 自動計算髮片要遮掉的部分（不做任何修改）：`tail` 沿著髮絲從髮根找出第一次穿進身體／服裝的位置，遮掉之後到髮尾的部分；`length` 每條髮絲保留指定比例；也可用 `inside`、`below`、`region`。回報遮掉比例、與其他髮絲共用的貼圖比例、可見的遮罩量、UV 疊圖與 3D 標記 |
+| `hair_mask_apply` / `hair_mask_revert` | 把遮罩寫進 shader 的 `_AlphaMask`（沒有的話寫進 `_MainTex` 透明度），透過 Material Editor 存進卡片；`revert` 立即還原原本的貼圖 |
+
+**髮尾穿模遮罩流程**：`hair_mask_preview`（`tail`）→ 看疊圖與 `capture_turntable(markers)` 確認位置 → `hair_mask_apply` →
+`capture_turntable` 檢查 → 不滿意就 `hair_mask_revert`。如果共用貼圖比例很高（遮掉會連帶影響其他髮絲），改用 `bones_set`（`slot`）縮短髮尾骨骼。
 
 **拼接髮調整流程**：`hair_check` 找缺口 → `capture_turntable` 帶 `markers` 看位置 → 用 `accessory_set`（放進 `batch_apply`）依建議位移調整 →
 再跑 `hair_check` 直到覆蓋率達標；不滿意就 `batch_undo`。
@@ -126,7 +131,8 @@ dotnet build src/StudioBridge/StudioBridge.csproj -c Release -p:Game=KKS -p:Game
 
 - **本體 Maker 支援**：同一顆 DLL 依程式名稱切換 Studio／Maker 模式；Maker 使用獨立的埠與連線檔 `maker-connection.json`，並在 Maker 重新載入角色時更新 session。
 - **新工具**：`maker_snapshot`、`maker_set_clothes_state`、`shape_get`、`shape_set`、`mesh_export`、`accessory_list`、`accessory_set`、
-  `hair_check`、`clipping_sweep`、`capture_turntable`、`expression_get/set`、`pose_list/set`、`dynamic_bones_get`、`dynamic_bone_set`、`bones_get/set`。
+  `hair_check`、`clipping_sweep`、`capture_turntable`、`expression_get/set`、`pose_list/set`、`dynamic_bones_get`、`dynamic_bone_set`、`bones_get/set`、
+  `hair_mask_preview`、`hair_mask_apply`、`hair_mask_revert`。
 - **修正材質被複製的問題**：原版讀取 `renderer.materials`，每次呼叫都會複製所有材質，讓遊戲持有的原材質失效；改為 `sharedMaterials`（與 Material Editor 一致）。
 - **錯誤訊息**：host 會把遊戲端的實際錯誤原因傳給 agent，原版只顯示「An error occurred invoking」。
 - **懶人安裝**：host 內建 `install`／`uninstall`，`Install.bat` 自動準備 .NET 8 Runtime、安裝外掛並註冊到 Claude Code、Claude Desktop、Codex；KK 與 KKS 各有安裝包。
@@ -154,7 +160,9 @@ character's baked meshes (OBJ + MTL + textures) to check clothing fit in Blender
 - **New tools**: `maker_snapshot`, `maker_set_clothes_state`, `shape_get`, `shape_set`, `mesh_export`; spliced-hair tools
   `accessory_list`, `accessory_set` (MoreAccessories slots, Hair Accessory Customizer) and `hair_check` (scalp coverage, gaps with
   candidate pieces and suggested moves, color/gloss consistency); `clipping_sweep`, `capture_turntable` (multi-view sheet with gap
-  markers), `expression_get/set`, `pose_list/set`, `dynamic_bones_get`/`dynamic_bone_set` and ABMX `bones_get/set`. All
+  markers), `expression_get/set`, `pose_list/set`, `dynamic_bones_get`/`dynamic_bone_set`, ABMX `bones_get/set` (also on accessory
+  bones), and automatic hair alpha masks `hair_mask_preview/apply/revert` (trim a tail from where it first goes into the body,
+  written into the shader's `_AlphaMask` through Material Editor). All
   `material_*`, `camera_*`, `capture` and `batch_*` tools also work in the maker (`objectId: 0`).
 - **Fixes**: the bridge reads `sharedMaterials` instead of cloning every material on each call; the host forwards
   the bridge's error text; bust sliders are mirrored into Pushup's base data so clothing changes don't revert them.

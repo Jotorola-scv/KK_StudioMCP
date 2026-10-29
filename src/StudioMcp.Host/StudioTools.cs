@@ -104,13 +104,13 @@ public static class StudioTools
     public static Task<JsonObject> HairMaskRevert(BridgeClient bridge, string sceneSession, string previewId)
         => bridge.Call("mask.revert", Args(new { sceneSession, previewId }));
 
-    [McpServerTool, Description("Capture several views around a character in one call and tile them into one contact sheet (default 8 yaws, 0 = front). target full or head; markers are world points drawn as red dots visible through hair (e.g. hair_check markers). pitch > 0 looks from above. Waits for the camera to stop, then settleFrames, so camera smoothing and temporal effects do not ghost the previous view. The camera is restored afterwards.")]
+    [McpServerTool, Description("Capture several views around a character in one call and tile them into one contact sheet (default 8 yaws, 0 = front). target full or head; markers are world points drawn as red dots visible through hair (e.g. hair_check markers). pitch > 0 looks from above. Waits for the camera to stop, then at least settleFrames and settleSeconds (default 2 s), because the game's temporal effects ghost the previous view for well over a second. The camera is restored afterwards.")]
     public static async Task<CallToolResult> CaptureTurntable(BridgeClient bridge, string sceneSession, int objectId = 0,
         float[]? views = null, float pitch = 0, string target = "full", int tileWidth = 360, int tileHeight = 480, int columns = 4,
-        float fov = 23, float? distance = null, System.Text.Json.JsonElement? markers = null, float markerSize = 0.012f, int settleFrames = 10)
+        float fov = 23, float? distance = null, System.Text.Json.JsonElement? markers = null, float markerSize = 0.012f, int settleFrames = 10, float settleSeconds = 2)
     {
         var started = await bridge.Call("capture.turntable", Args(new { sceneSession, objectId, views, pitch, target, tileWidth, tileHeight,
-            columns, fov, distance, markers, markerSize, settleFrames }));
+            columns, fov, distance, markers, markerSize, settleFrames, settleSeconds }));
         return await WaitForCapture(bridge, started["result"]!["jobId"]!.GetValue<string>());
     }
 
@@ -155,7 +155,7 @@ public static class StudioTools
     [McpServerTool, Description("Read the camera orbit pivot, rotation, field of view and actual eye position.")]
     public static Task<JsonObject> CameraGet(BridgeClient bridge) => bridge.Call("camera.get");
 
-    [McpServerTool, Description("Set the Studio camera orbit pivot, Euler rotation and field of view. Pivot is not the eye position.")]
+    [McpServerTool, Description("Set the Studio or maker camera orbit pivot, Euler rotation and field of view. Pivot is not the eye position. The camera glides to the new orbit and the game's temporal effects ghost the previous view, so wait about 2 s before capture (capture_turntable waits by itself).")]
     public static Task<JsonObject> CameraSet(BridgeClient bridge, string sceneSession,
         float[]? pivot = null, float[]? rotation = null, float? fov = null, float[]? distance = null)
         => bridge.Call("camera.set", Args(new { sceneSession, pivot, rotation, fov, distance }));

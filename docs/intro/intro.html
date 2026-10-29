@@ -17,7 +17,7 @@
     --amber: #ffc46b;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 1600px; height: 3820px; overflow: hidden; }
+  html, body { width: 1600px; height: 4130px; overflow: hidden; }
   body {
     background:
       radial-gradient(900px 500px at 85% -5%, rgba(143,128,255,.22), transparent 60%),
@@ -70,6 +70,8 @@
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 18px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px 18px; }
   .card.wide { grid-column: span 2; }
+  .card.full { grid-column: span 3; }
+  .card.full .tools { grid-template-columns: 1fr 1fr 1fr; column-gap: 26px; }
   .head { display: flex; align-items: center; gap: 12px; }
   .ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; flex: none;
          background: linear-gradient(135deg, rgba(255,111,168,.25), rgba(143,128,255,.25)); }
@@ -231,6 +233,24 @@
           <div class="e en">Flags pieces whose color or gloss differs from the rest</div></div>
       </div>
     </div>
+    <!-- hair mask (full width) -->
+    <div class="card full">
+      <div class="head"><div class="ico">✂️</div>
+        <div class="titles"><h3>髮片自動遮罩</h3><div class="h3-en en">Automatic hair alpha mask</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">髮片位置滿意但尾部太長穿模？agent 自動找出穿進身體的位置，只遮掉穿出去的那段，存進卡片。<br><span class="en">Happy with a hair piece but its tail clips? The agent finds where it goes into the body and hides only the part beyond it.</span></div>
+      <div class="tools">
+        <div class="tool"><code>hair_mask_preview · tail</code>
+          <div class="zh">沿著髮絲從髮根找第一次穿進身體／服裝的位置，遮掉之後到髮尾；也有 length、inside、below、region</div>
+          <div class="e en">Follows each strand from its root and trims from the first crossing; also length, inside, below, region</div></div>
+        <div class="tool"><code>sharedPercent · overlay</code>
+          <div class="zh">檢查貼圖是否與其他髮絲共用，避免誤遮；UV 疊圖與 3D 標記預覽</div>
+          <div class="e en">Flags texture shared with other strands; UV overlay and 3D markers</div></div>
+        <div class="tool"><code>hair_mask_apply · revert</code>
+          <div class="zh">寫進 shader 的 _AlphaMask，透過 Material Editor 存卡；可立即還原。也可改用 bones_set 縮短髮尾骨骼</div>
+          <div class="e en">Written to _AlphaMask via Material Editor; instant revert; or shorten tail bones</div></div>
+      </div>
+    </div>
     <!-- materials (wide) -->
     <div class="card wide">
       <div class="head"><div class="ico">🎨</div>
@@ -321,7 +341,7 @@
           <div class="zh">讀取骨骼修改與所有可修改的骨骼名稱</div>
           <div class="e en">Current modifiers and every modifiable bone</div></div>
         <div class="tool"><code>bones_set</code>
-          <div class="zh">縮放、位置、旋轉、長度；存進卡片，可批次復原</div>
+          <div class="zh">縮放、位置、旋轉、長度；也可調整髮片骨骼；存進卡片，可批次復原</div>
           <div class="e en">Scale, position, rotation, length; batch undo</div></div>
       </div>
     </div>
