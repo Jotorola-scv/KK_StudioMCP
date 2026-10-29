@@ -238,9 +238,14 @@ namespace StudioMcp.Bridge
             }
             else
             {
-                var renderers = character.GetComponentsInChildren<Renderer>(false).Where(r => r.enabled && !(r is ParticleSystemRenderer)).ToArray();
-                bounds = renderers[0].bounds;
-                foreach (var r in renderers.Skip(1)) bounds.Encapsulate(r.bounds);
+                // Body and face from their baked vertices (renderer bounds are padded), with a margin for hair and shoes.
+                var body = AnalysisCommands.Bake(character.rendBody);
+                var face = AnalysisCommands.Bake(character.rendFace);
+                var points = (body?.Points ?? new Vector3[0]).Concat(face?.Points ?? new Vector3[0]).ToArray();
+                if (points.Length == 0) throw new InvalidOperationException("The body mesh cannot be read.");
+                bounds = new Bounds(points[0], Vector3.zero);
+                foreach (var point in points) bounds.Encapsulate(point);
+                bounds.Expand(new Vector3(0.25f, 0.08f, 0.25f));
             }
             var size = Mathf.Max(bounds.size.y, Mathf.Max(bounds.size.x, bounds.size.z) * height / (float)width);
             var distance = args["distance"] == null ? size * 0.5f * 1.12f / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) : SceneCommands.Number(args["distance"]);
@@ -248,6 +253,7 @@ namespace StudioMcp.Bridge
             if (markers.Count > 400) throw new ArgumentException("At most 400 markers.");
             foreach (var m in markers) SceneCommands.Vector(m);
             var markerSize = args["markerSize"] == null ? 0.012f : SceneCommands.Number(args["markerSize"]);
+            var settle = Mathf.Clamp((int?)args["settleFrames"] ?? 10, 1, 240);
 
             var id = Guid.NewGuid().ToString("N");
             var record = new JObject { ["jobId"] = id, ["state"] = "waiting", ["sceneSession"] = _plugin.Session,
@@ -259,7 +265,7 @@ namespace StudioMcp.Bridge
             var frontYaw = character.transform.eulerAngles.y + 180f;
             var cameras = views.Select(yaw => new JObject { ["pivot"] = SceneCommands.Json(bounds.center),
                 ["rotation"] = new JArray(pitch, frontYaw + yaw, 0f), ["distance"] = new JArray(0f, 0f, -distance), ["fov"] = fov }).ToArray();
-            if (_plugin.StartCoroutine(Turntable(record, api, cameras, width, height, columns, rows, character.rendFace.gameObject.layer, markers, markerSize)) == null)
+            if (_plugin.StartCoroutine(Turntable(record, api, cameras, width, height, columns, rows, character.rendFace.gameObject.layer, markers, markerSize, settle)) == null)
             {
                 Busy = false;
                 throw new InvalidOperationException("The capture coroutine did not start.");
@@ -268,7 +274,7 @@ namespace StudioMcp.Bridge
         }
 
         private IEnumerator Turntable(JObject record, NativeApi api, JObject[] cameras, int width, int height, int columns, int rows,
-            int layer, JArray markers, float markerSize)
+            int layer, JArray markers, float markerSize, int settle)
         {
             var saved = (JObject)_plugin.Dispatch("camera.get", new JObject());
             var spawned = new List<GameObject>();
@@ -303,8 +309,20 @@ namespace StudioMcp.Bridge
             {
                 try { _plugin.Dispatch("camera.set", cameras[i]); }
                 catch (Exception error) { failed = true; record["state"] = "failed"; record["error"] = error.GetBaseException().Message; break; }
-                // Let the camera controller apply the new orbit before rendering.
-                yield return null;
+                // The maker/Studio cameras glide to a new orbit over many frames, and the game's temporal effects blend
+                // frames, so rendering too early ghosts the previous view. Wait until the camera stops, then settle.
+                var last = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+                var lastRotation = Camera.main != null ? Camera.main.transform.rotation : Quaternion.identity;
+                for (int f = 0, still = 0; f < 600 && still < 5; f++)
+                {
+                    yield return null;
+                    if (Camera.main == null) break;
+                    var moved = (Camera.main.transform.position - last).sqrMagnitude > 1e-8f || Quaternion.Angle(Camera.main.transform.rotation, lastRotation) > 0.01f;
+                    still = moved ? 0 : still + 1;
+                    last = Camera.main.transform.position;
+                    lastRotation = Camera.main.transform.rotation;
+                }
+                for (var f = 0; f < settle; f++) yield return null;
                 yield return new WaitForEndOfFrame();
                 RenderTexture render = null;
                 try

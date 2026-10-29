@@ -81,13 +81,14 @@ public static class StudioTools
         float[]? scale = null, float[]? position = null, float[]? rotation = null, float? length = null)
         => bridge.Call("chara.bones_set", Args(new { sceneSession, objectId, slot, bone, scale, position, rotation, length }));
 
-    [McpServerTool, Description("Preview an alpha mask for one hair accessory (slot) without changing anything: picks triangles by mode inside (buried in the body/clothes, marginMm, accessorySlots for accessory garments), below (world height) or region (center, radius), rasterizes them in UV space (grow px), and reports per material the cut %, texture pixels shared with kept geometry (protectShared keeps them), an alpha-clip hint, an overlay PNG (red cut, yellow shared) and 3D markers for capture_turntable. Returns a previewId for hair_mask_apply.")]
-    public static async Task<CallToolResult> HairMaskPreview(BridgeClient bridge, int slot, int objectId = 0, string mode = "inside",
+    [McpServerTool, Description("Preview an alpha mask for one hair accessory (slot) without changing anything. mode: tail (default; follows each strand from its root and cuts from where it first goes into the body/clothes to the tip, ignoreNearRootCm, backoffCm), length (keep a fraction or keepCm of every strand), inside (only the buried part), below (world height) or region (center, radius). marginMm and accessorySlots/includeClothes define the body. Writes into the shader's _AlphaMask when it has one, else the _MainTex alpha (property to force). Reports per material the cut %, texture pixels shared with kept strands (protectShared keeps them), an alpha-clip hint, an overlay PNG (red cut, yellow shared), strand stats and 3D markers for capture_turntable. Returns a previewId.")]
+    public static async Task<CallToolResult> HairMaskPreview(BridgeClient bridge, int slot, int objectId = 0, string mode = "tail",
         float? height = null, float[]? center = null, float? radius = null, float marginMm = 2, int[]? accessorySlots = null,
-        bool includeClothes = true, int grow = 2, bool protectShared = true, int? rendererId = null)
+        bool includeClothes = true, float? ignoreNearRootCm = null, float? backoffCm = null, float? keep = null, float? keepCm = null,
+        string property = "auto", int grow = 2, bool protectShared = true, int? rendererId = null)
     {
         var response = await bridge.Call("analysis.hair_mask", Args(new { objectId, slot, mode, height, center, radius, marginMm, accessorySlots,
-            includeClothes, grow, protectShared, rendererId }));
+            includeClothes, ignoreNearRootCm, backoffCm, keep, keepCm, property, grow, protectShared, rendererId }));
         var result = response["result"]!.AsObject();
         var content = new List<ContentBlock> { new TextContentBlock { Text = response.ToJsonString() } };
         var overlay = result["overlayPath"]?.GetValue<string>();
@@ -95,17 +96,21 @@ public static class StudioTools
         return new CallToolResult { Content = content };
     }
 
-    [McpServerTool, Description("Apply a hair_mask_preview: bakes the mask into each material's _MainTex alpha and imports it through Material Editor (saved with the card). Only visible on shaders that clip or blend by alpha; verify with capture_turntable. Undo with material_reset (kind texture, property _MainTex) per rendererId.")]
+    [McpServerTool, Description("Apply a hair_mask_preview: writes the mask into each material's _AlphaMask (or _MainTex alpha) and imports it through Material Editor, so it is saved with the card. Verify with capture_turntable; undo with hair_mask_revert.")]
     public static Task<JsonObject> HairMaskApply(BridgeClient bridge, string sceneSession, string previewId)
         => bridge.Call("mask.apply", Args(new { sceneSession, previewId }));
 
-    [McpServerTool, Description("Capture several views around a character in one call and tile them into one contact sheet (default 8 yaws, 0 = front). target full or head; markers are world points drawn as red dots visible through hair (e.g. hair_check markers). The camera is restored afterwards.")]
+    [McpServerTool, Description("Undo an applied hair mask now: removes the Material Editor texture and restores the original texture immediately.")]
+    public static Task<JsonObject> HairMaskRevert(BridgeClient bridge, string sceneSession, string previewId)
+        => bridge.Call("mask.revert", Args(new { sceneSession, previewId }));
+
+    [McpServerTool, Description("Capture several views around a character in one call and tile them into one contact sheet (default 8 yaws, 0 = front). target full or head; markers are world points drawn as red dots visible through hair (e.g. hair_check markers). pitch > 0 looks from above. Waits for the camera to stop, then settleFrames, so camera smoothing and temporal effects do not ghost the previous view. The camera is restored afterwards.")]
     public static async Task<CallToolResult> CaptureTurntable(BridgeClient bridge, string sceneSession, int objectId = 0,
         float[]? views = null, float pitch = 0, string target = "full", int tileWidth = 360, int tileHeight = 480, int columns = 4,
-        float fov = 23, float? distance = null, System.Text.Json.JsonElement? markers = null, float markerSize = 0.012f)
+        float fov = 23, float? distance = null, System.Text.Json.JsonElement? markers = null, float markerSize = 0.012f, int settleFrames = 10)
     {
         var started = await bridge.Call("capture.turntable", Args(new { sceneSession, objectId, views, pitch, target, tileWidth, tileHeight,
-            columns, fov, distance, markers, markerSize }));
+            columns, fov, distance, markers, markerSize, settleFrames }));
         return await WaitForCapture(bridge, started["result"]!["jobId"]!.GetValue<string>());
     }
 

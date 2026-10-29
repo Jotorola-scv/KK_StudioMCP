@@ -1,9 +1,10 @@
-﻿# Builds the one-click release for one game: bridge, framework-dependent host, Install.bat/Uninstall.bat.
+﻿# Saved as UTF-8 with BOM: Windows PowerShell 5.1 reads BOM-less scripts as ANSI and garbles the Chinese text.
+# Builds the one-click release for one game: bridge, framework-dependent host, Install.bat/Uninstall.bat.
 # The host runs under Microsoft's signed dotnet.exe: a self-extracting single-file exe gets blocked by antivirus heuristics.
 param(
     [Parameter(Mandatory = $true)][string]$GameRoot,
     [ValidateSet('KKS', 'KK')][string]$Game = 'KKS',
-    [string]$Version = '0.1.0-maker.3'
+    [string]$Version = '0.1.0-maker.4'
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -61,19 +62,19 @@ $readme = @'
 StudioMCP (Maker support) for {TITLE}
 ================================================
 
-å®‰è£ï¼š
-  1. æŠŠæ•´å€‹è³‡æ–™å¤¾è§£å£“åˆ°éŠæˆ²è³‡æ–™å¤¾è£¡ï¼ˆæœ‰ CharaStudio.exe çš„é‚£å€‹ï¼‰ï¼Œæˆ–ä»»ä½•åœ°æ–¹éƒ½å¯ä»¥ã€‚
-  2. é›™æ“Š Install.batã€‚æ‰¾ä¸åˆ°éŠæˆ²æ™‚ï¼ŒæŠŠéŠæˆ²è³‡æ–™å¤¾æ‹–é€²è¦–çª—æŒ‰ Enterã€‚
-  3. é‡æ–°å•Ÿå‹•éŠæˆ²èˆ‡ Claude / Codexã€‚Studio ç”¨ {STUDIO}ï¼Œæœ¬é«” Maker ç”¨ {MAKER}ã€‚
+安裝：
+  1. 把整個資料夾解壓到遊戲資料夾裡（有 CharaStudio.exe 的那個），或任何地方都可以。
+  2. 雙擊 Install.bat。找不到遊戲時，把遊戲資料夾拖進視窗按 Enter。
+  3. 重新啟動遊戲與 Claude / Codex。Studio 用 {STUDIO}，本體 Maker 用 {MAKER}。
 
-  éœ€è¦ .NET 8 Runtimeï¼ˆå¾®è»Ÿå®˜æ–¹å…ƒä»¶ï¼‰ï¼›æ²’æœ‰çš„è©± Install.bat æœƒè‡ªå‹•ç”¨ winget å®‰è£ã€‚
-  å®‰è£ç¨‹å¼æœƒè‡ªå‹•ï¼šæ”¾å…¥éŠæˆ²å¤–æŽ›ã€é–‹å•Ÿå¯«å…¥ã€
-  è¨»å†Šåˆ° Claude Code / Claude Desktop / Codexï¼ˆæœ‰å®‰è£çš„æ‰æœƒè¨»å†Šï¼‰ï¼Œä¸¦å‚™ä»½è¢«ä¿®æ”¹çš„è¨­å®šæª”ã€‚
-  åªè¦å”¯è®€ï¼šåœ¨å‘½ä»¤åˆ—åŸ·è¡Œ  Install.bat --read-only
+  需要 .NET 8 Runtime（微軟官方元件）；沒有的話 Install.bat 會自動用 winget 安裝。
+  安裝程式會自動：放入遊戲外掛、開啟寫入、
+  註冊到 Claude Code / Claude Desktop / Codex（有安裝的才會註冊），並備份被修改的設定檔。
+  只要唯讀：在命令列執行  Install.bat --read-only
 
-ç§»é™¤ï¼šé›™æ“Š Uninstall.batã€‚
+移除：雙擊 Uninstall.bat。
 
-éœ€æ±‚ï¼š{GAME} + BepInEx + {API}ï¼ˆHF Patch å·²å…§å«ï¼‰ã€‚æè³ªåŠŸèƒ½éœ€è¦ Material Editorï¼Œæˆªåœ–éœ€è¦ Screencapã€‚
+需求：{GAME} + BepInEx + {API}（HF Patch 已內含）。材質功能需要 Material Editor，截圖需要 Screencap。
 
 Install: unzip, double-click Install.bat, restart the game and your AI client.
 Needs the .NET 8 Runtime; Install.bat installs Microsoft's official runtime with winget if it is missing.
