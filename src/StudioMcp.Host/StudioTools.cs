@@ -38,14 +38,14 @@ public static class StudioTools
         System.Text.Json.JsonElement? colors = null, System.Text.Json.JsonElement? hair = null)
         => bridge.Call("chara.accessory_set", Args(new { sceneSession, objectId, slot, correction, position, rotation, scale, add, parent, colors, hair }));
 
-    [McpServerTool, Description("Check spliced hair against the head mesh: scalp coverage % (top/back/left/right; forehead reported separately), uncovered gap clusters with the nearest hair piece and a suggested accessory_set move (add=true), and per-piece seams (closest gap, % inside the head, max depth, floating/sunk verdict with a suggested move). slots adds non-hair accessories used as hair. Returns markers for capture_turntable.")]
-    public static Task<JsonObject> HairCheck(BridgeClient bridge, int objectId = 0, int[]? slots = null)
-        => bridge.Call("analysis.hair", Args(new { objectId, slots }));
+    [McpServerTool, Description("Check spliced hair against the head mesh: scalp coverage % (top/back/left/right; forehead reported separately), uncovered gap clusters with the nearest hair piece and a suggested accessory_set move (add=true), and per-piece seams (closest gap, % inside the head, max depth, floating/sunk verdict with a suggested move). slots adds non-hair accessories used as hair. Returns markers for capture_turntable (showUncovered: one marker per uncovered scalp sample).")]
+    public static Task<JsonObject> HairCheck(BridgeClient bridge, int objectId = 0, int[]? slots = null, bool showUncovered = false)
+        => bridge.Call("analysis.hair", Args(new { objectId, slots, showUncovered }));
 
-    [McpServerTool, Description("Sweep body sliders and count where the body pokes through the worn clothing, e.g. sliders {\"bust_size\":[0,1],\"waist_position\":[0,1]} (default: bust, waist, thighs, butt at 0 and 1; max 16 values). Reports poke-through points, max depth, the clothing pieces involved and hotspot positions per step, then restores the sliders.")]
+    [McpServerTool, Description("Sweep body sliders and count where the body pokes through the worn clothing, e.g. sliders {\"bust_size\":[0,1],\"waist_position\":[0,1]} (default: bust, waist, thighs, butt at 0 and 1; max 16 values). Reports poke-through points, max depth, the clothing pieces involved and hotspot positions per step, accessorySlots adds accessory-based garments. Then restores the sliders.")]
     public static Task<JsonObject> ClippingSweep(BridgeClient bridge, string sceneSession, int objectId = 0,
-        System.Text.Json.JsonElement? sliders = null, float toleranceMm = 1.5f)
-        => bridge.Call("analysis.clipping_sweep", Args(new { sceneSession, objectId, sliders, toleranceMm }));
+        System.Text.Json.JsonElement? sliders = null, float toleranceMm = 1.5f, int[]? accessorySlots = null)
+        => bridge.Call("analysis.clipping_sweep", Args(new { sceneSession, objectId, sliders, toleranceMm, accessorySlots }));
 
     [McpServerTool, Description("Read the character's eye, mouth and eyebrow patterns, openness and blinking; in the maker also the pattern names.")]
     public static Task<JsonObject> ExpressionGet(BridgeClient bridge, int objectId = 0)
@@ -59,7 +59,7 @@ public static class StudioTools
     [McpServerTool, Description("Maker mode: list the maker's preview poses.")]
     public static Task<JsonObject> PoseList(BridgeClient bridge) => bridge.Call("maker.pose_list");
 
-    [McpServerTool, Description("Maker mode: switch the maker preview pose by index from pose_list, optionally at a normalized animation time (0..1), to check hair and clothes in motion.")]
+    [McpServerTool, Description("Maker mode: switch the maker preview pose by index from pose_list (-1 = default pose), optionally at a normalized animation time (0..1), to check hair and clothes in motion.")]
     public static Task<JsonObject> PoseSet(BridgeClient bridge, string sceneSession, int index, float time = 0)
         => bridge.Call("maker.pose_set", Args(new { sceneSession, index, time }));
 

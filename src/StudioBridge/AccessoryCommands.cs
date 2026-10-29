@@ -73,15 +73,21 @@ namespace StudioMcp.Bridge
                 ["colors"] = new JArray(part.color.Select(c => (JToken)SceneCommands.Json(c))), ["noShake"] = part.noShake,
                 ["visible"] = obj.activeSelf, ["isHair"] = obj.GetComponent<ChaCustomHairComponent>() != null,
                 ["rendererCount"] = obj.GetComponentsInChildren<Renderer>(true).Length };
-            var hair = HairController(character);
-            if (hair != null && (bool)Call(hair, "IsHairAccessory", slot))
-                entry["hair"] = new JObject { ["colorMatch"] = (bool)Call(hair, "GetColorMatch", slot),
-                    ["hairGloss"] = (bool)Call(hair, "GetHairGloss", slot),
-                    ["accessoryColor"] = SceneCommands.Json((Color)Call(hair, "GetAccessoryColor", slot)),
-                    ["outlineColor"] = SceneCommands.Json((Color)Call(hair, "GetOutlineColor", slot)),
-                    ["glossColor"] = SceneCommands.Json((Color)Call(hair, "GetGlossColor", slot)),
-                    ["length"] = (float)Call(hair, "GetHairLength", slot) };
+            var hair = HairInfo(character, slot);
+            if (hair != null) entry["hair"] = hair;
             return entry;
+        }
+
+        internal static JObject HairInfo(ChaControl character, int slot)
+        {
+            var hair = HairController(character);
+            if (hair == null || !(bool)Call(hair, "IsHairAccessory", slot)) return null;
+            return new JObject { ["colorMatch"] = (bool)Call(hair, "GetColorMatch", slot),
+                ["hairGloss"] = (bool)Call(hair, "GetHairGloss", slot),
+                ["accessoryColor"] = SceneCommands.Json((Color)Call(hair, "GetAccessoryColor", slot)),
+                ["outlineColor"] = SceneCommands.Json((Color)Call(hair, "GetOutlineColor", slot)),
+                ["glossColor"] = SceneCommands.Json((Color)Call(hair, "GetGlossColor", slot)),
+                ["length"] = (float)Call(hair, "GetHairLength", slot) };
         }
 
         // Validates everything first, then writes the live coordinate and the card's copy of it, like the maker's accessory panel.
@@ -123,7 +129,10 @@ namespace StudioMcp.Bridge
                         var token = move.Value[keys[k]];
                         if (token == null || token.Type == JTokenType.Null) continue;
                         var value = SceneCommands.Vector(token);
-                        part.addMove[move.Key, k] = add ? part.addMove[move.Key, k] + value : value;
+                        value = add ? part.addMove[move.Key, k] + value : value;
+                        // The maker keeps rotations within 0-360.
+                        if (k == 1) value = new Vector3(Mathf.Repeat(value.x, 360f), Mathf.Repeat(value.y, 360f), Mathf.Repeat(value.z, 360f));
+                        part.addMove[move.Key, k] = value;
                     }
             }
             if (moves.Count > 0) ApplyMoves(character, slot);

@@ -229,7 +229,13 @@ namespace StudioMcp.Bridge
 
             var character = _plugin.Characters.Character((int?)args["objectId"] ?? 0);
             Bounds bounds;
-            if (target == "head") bounds = character.rendFace.bounds;
+            if (target == "head")
+            {
+                // Skinned renderer bounds are padded far beyond the mesh, so frame the head from its baked vertices.
+                var face = AnalysisCommands.Bake(character.rendFace) ?? throw new InvalidOperationException("The face mesh cannot be read.");
+                bounds = new Bounds(face.Points[0], Vector3.zero);
+                foreach (var point in face.Points) bounds.Encapsulate(point);
+            }
             else
             {
                 var renderers = character.GetComponentsInChildren<Renderer>(false).Where(r => r.enabled && !(r is ParticleSystemRenderer)).ToArray();
@@ -239,7 +245,7 @@ namespace StudioMcp.Bridge
             var size = Mathf.Max(bounds.size.y, Mathf.Max(bounds.size.x, bounds.size.z) * height / (float)width);
             var distance = args["distance"] == null ? size * 0.5f * 1.12f / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) : SceneCommands.Number(args["distance"]);
             var markers = args["markers"] as JArray ?? new JArray();
-            if (markers.Count > 64) throw new ArgumentException("At most 64 markers.");
+            if (markers.Count > 400) throw new ArgumentException("At most 400 markers.");
             foreach (var m in markers) SceneCommands.Vector(m);
             var markerSize = args["markerSize"] == null ? 0.012f : SceneCommands.Number(args["markerSize"]);
 

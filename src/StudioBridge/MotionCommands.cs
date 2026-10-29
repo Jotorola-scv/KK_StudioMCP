@@ -85,11 +85,12 @@ namespace StudioMcp.Bridge
         {
             var maker = Maker();
             var count = ((IList)Member(maker, "lstPose")).Count;
-            if (args["index"] == null || args["index"].Type != JTokenType.Integer || (int)args["index"] < 0 || (int)args["index"] >= count)
-                throw new ArgumentException("index requires a pose index from pose_list (0-" + (count - 1) + ").");
+            if (args["index"] == null || args["index"].Type != JTokenType.Integer || (int)args["index"] < -1 || (int)args["index"] >= count)
+                throw new ArgumentException("index requires a pose index from pose_list (0-" + (count - 1) + "), or -1 for the default pose.");
             var time = args["time"] == null ? 0f : SceneCommands.Number(args["time"]);
             if (time < 0 || time > 1) throw new ArgumentOutOfRangeException("time", "Use a normalized 0..1 animation time.");
             var draw = UnityEngine.Object.FindObjectOfType<ChaCustom.CvsDrawCtrl>() ?? throw new InvalidOperationException("Maker pose panel is unavailable.");
+            if ((int)args["index"] < 0) { draw.ChangePoseDefault(); return Poses(); }
             draw.ChangeAnimationForce((int)args["index"], time);
             // Keep the maker's pose dropdown in step without re-triggering its change handler.
             var dropdown = draw.GetType().GetField("ddPose").GetValue(draw);
