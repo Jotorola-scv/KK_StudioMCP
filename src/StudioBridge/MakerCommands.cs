@@ -41,6 +41,7 @@ namespace StudioMcp.Bridge
                     if (args["rotation"] != null) camera.CameraAngle = SceneCommands.Vector(args["rotation"]);
                     if (args["distance"] != null) camera.CameraDir = SceneCommands.Vector(args["distance"]);
                     if (args["fov"] != null) camera.CameraFov = SceneCommands.Number(args["fov"]);
+                    CaptureCommands.LastCameraMove = Time.unscaledTime;
                     return CameraState();
                 default: throw new NotSupportedException(method + " is Studio-only; it is unavailable in the character maker.");
             }

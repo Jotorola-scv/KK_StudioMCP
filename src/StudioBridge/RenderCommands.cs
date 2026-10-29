@@ -102,6 +102,14 @@ namespace StudioMcp.Bridge
                 ["near"] = Camera.main.nearClipPlane, ["far"] = Camera.main.farClipPlane,
                 ["hdr"] = Camera.main.allowHDR, ["cullingMask"] = Camera.main.cullingMask,
                 ["depthMode"] = Camera.main.depthTextureMode.ToString() },
+            // Every camera: extra cameras that follow the main one with a lag are what ghost captures.
+            ["cameras"] = new JArray(Resources.FindObjectsOfTypeAll<Camera>().Where(c => c.gameObject.scene.IsValid()).Take(32).Select(c => new JObject {
+                ["name"] = c.name, ["parent"] = c.transform.parent != null ? c.transform.parent.name : null,
+                ["enabled"] = c.enabled, ["active"] = c.gameObject.activeInHierarchy, ["main"] = c == Camera.main,
+                ["depth"] = c.depth, ["clearFlags"] = c.clearFlags.ToString(), ["background"] = SceneCommands.Json(c.backgroundColor),
+                ["cullingMask"] = c.cullingMask, ["targetTexture"] = c.targetTexture != null ? c.targetTexture.name : null,
+                ["fov"] = c.fieldOfView, ["position"] = SceneCommands.Json(c.transform.position), ["rotation"] = SceneCommands.Json(c.transform.eulerAngles),
+                ["components"] = new JArray(c.GetComponents<Behaviour>().Where(b => b != null && !(b is Camera)).Select(b => (JToken)(b.GetType().Name + (b.enabled ? "" : " (off)")))) })),
             ["lights"] = new JArray(UnityEngine.Object.FindObjectsOfType<Light>().Take(128).Select(l => new JObject {
                 ["name"] = l.name, ["type"] = l.type.ToString(), ["position"] = SceneCommands.Json(l.transform.position),
                 ["enabled"] = l.enabled, ["intensity"] = l.intensity, ["range"] = l.range,

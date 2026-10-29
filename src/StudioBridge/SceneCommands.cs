@@ -163,6 +163,7 @@ namespace StudioMcp.Bridge
                         if (fov < 1 || fov > 170) throw new ArgumentOutOfRangeException("fov");
                         camera.fieldOfView = fov;
                     }
+                    CaptureCommands.LastCameraMove = Time.unscaledTime;
                     return CameraState();
                 default: throw new ArgumentException("Unsupported method: " + method);
             }

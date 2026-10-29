@@ -278,9 +278,9 @@ public static class StudioTools
 
     [McpServerTool, Description("Render through installed Screencap and return a PNG preview plus the full path. alphaMode is None (default), blackout (native cutout) or rgAlpha (native gradual alpha); inspect studio_status.captureOptions for support. withDepth requires None. Waits for completion; never captures the desktop.")]
     public static async Task<CallToolResult> Capture(BridgeClient bridge, string sceneSession,
-        int width = 640, int height = 360, int supersampling = 1, bool withDepth = false, string alphaMode = "None")
+        int width = 640, int height = 360, int supersampling = 1, bool withDepth = false, string alphaMode = "None", float settleSeconds = 0)
     {
-        var started = await bridge.Call("capture.start", Args(new { sceneSession, width, height, supersampling, withDepth, alphaMode }));
+        var started = await bridge.Call("capture.start", Args(new { sceneSession, width, height, supersampling, withDepth, alphaMode, settleSeconds }));
         return await WaitForCapture(bridge, started["result"]!["jobId"]!.GetValue<string>());
     }
 

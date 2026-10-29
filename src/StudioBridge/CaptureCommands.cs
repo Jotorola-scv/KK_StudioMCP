@@ -15,6 +15,24 @@ namespace StudioMcp.Bridge
         private readonly Dictionary<string, JObject> _jobs = new Dictionary<string, JObject>();
         private readonly Queue<string> _jobOrder = new Queue<string>();
         internal bool Busy { get; private set; }
+        // When the camera last moved (tool call or mouse). Maker renders keep a ghost of earlier views for about 1.7 s after a
+        // move; Studio does not, so it only needs a short settle.
+        internal static float LastCameraMove = -100f;
+        private static float MoveSettle => Plugin.InStudio ? 0.3f : 2f;
+        private static Vector3 _trackedPosition;
+        private static Quaternion _trackedRotation;
+
+        // Called every frame, so mouse orbits count as camera moves too.
+        internal static void TrackCamera()
+        {
+            var camera = Camera.main;
+            if (camera == null) return;
+            var t = camera.transform;
+            if ((t.position - _trackedPosition).sqrMagnitude > 1e-8f || Quaternion.Angle(t.rotation, _trackedRotation) > 0.01f)
+                LastCameraMove = Time.unscaledTime;
+            _trackedPosition = t.position;
+            _trackedRotation = t.rotation;
+        }
         private sealed class NativeApi
         {
             internal Type Alpha;
@@ -114,7 +132,8 @@ namespace StudioMcp.Bridge
             Busy = true;
             try
             {
-                if (_plugin.StartCoroutine(Capture(record, width, height, supersampling, api, nativeMode)) == null)
+                var settleSeconds = args["settleSeconds"] == null ? 0f : Mathf.Clamp(SceneCommands.Number(args["settleSeconds"]), 0f, 10f);
+                if (_plugin.StartCoroutine(Capture(record, width, height, supersampling, api, nativeMode, settleSeconds)) == null)
                     throw new InvalidOperationException("The capture coroutine did not start.");
             }
             catch
@@ -127,8 +146,53 @@ namespace StudioMcp.Bridge
             return new JObject { ["jobId"] = id, ["state"] = "waiting" };
         }
 
-        private IEnumerator Capture(JObject record, int width, int height, int supersampling, NativeApi api, object nativeMode)
+        // Waits until every enabled camera has kept its position, rotation and FOV for five frames (they glide after a move,
+        // and a follower camera can lag the main one), then for at least settleSeconds; records the frames waited.
+        private IEnumerator Settle(JObject record, float settleSeconds, int minFrames)
         {
+            var start = Time.frameCount;
+            var started = Time.unscaledTime;
+            var state = Snapshot();
+            for (int f = 0, still = 0; f < 900 && still < 5; f++)
+            {
+                yield return null;
+                var next = Snapshot();
+                still = Same(state, next) ? still + 1 : 0;
+                state = next;
+            }
+            var moving = Time.frameCount - start;
+            if (moving > 5) LastCameraMove = Time.unscaledTime;
+            var until = Mathf.Max(Time.unscaledTime + settleSeconds, LastCameraMove + MoveSettle);
+            for (var f = 0; f < minFrames || Time.unscaledTime < until; f++) yield return null;
+            var waits = record["waits"] as JArray ?? new JArray();
+            waits.Add(new JObject { ["cameraFrames"] = moving, ["totalFrames"] = Time.frameCount - start,
+                ["seconds"] = Math.Round(Time.unscaledTime - started, 2) });
+            record["waits"] = waits;
+        }
+
+        private static List<Vector4> Snapshot()
+        {
+            var result = new List<Vector4>();
+            foreach (var camera in Camera.allCameras)
+            {
+                var p = camera.transform.position;
+                var r = camera.transform.rotation;
+                result.Add(new Vector4(p.x, p.y, p.z, camera.fieldOfView));
+                result.Add(new Vector4(r.x, r.y, r.z, r.w));
+            }
+            return result;
+        }
+
+        private static bool Same(List<Vector4> a, List<Vector4> b)
+        {
+            if (a.Count != b.Count) return false;
+            for (var i = 0; i < a.Count; i++) if ((a[i] - b[i]).sqrMagnitude > 1e-9f) return false;
+            return true;
+        }
+
+        private IEnumerator Capture(JObject record, int width, int height, int supersampling, NativeApi api, object nativeMode, float settleSeconds)
+        {
+            yield return _plugin.StartCoroutine(Settle(record, settleSeconds, 1));
             yield return new WaitForEndOfFrame();
             RenderTexture render = null;
             RenderTexture preview = null;
@@ -313,19 +377,7 @@ namespace StudioMcp.Bridge
                 catch (Exception error) { failed = true; record["state"] = "failed"; record["error"] = error.GetBaseException().Message; break; }
                 // The maker/Studio cameras glide to a new orbit over many frames, and the game's temporal effects blend
                 // frames, so rendering too early ghosts the previous view. Wait until the camera stops, then settle.
-                var last = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
-                var lastRotation = Camera.main != null ? Camera.main.transform.rotation : Quaternion.identity;
-                for (int f = 0, still = 0; f < 600 && still < 5; f++)
-                {
-                    yield return null;
-                    if (Camera.main == null) break;
-                    var moved = (Camera.main.transform.position - last).sqrMagnitude > 1e-8f || Quaternion.Angle(Camera.main.transform.rotation, lastRotation) > 0.01f;
-                    still = moved ? 0 : still + 1;
-                    last = Camera.main.transform.position;
-                    lastRotation = Camera.main.transform.rotation;
-                }
-                var settled = Time.unscaledTime + settleSeconds;
-                for (var f = 0; f < settle || Time.unscaledTime < settled; f++) yield return null;
+                yield return _plugin.StartCoroutine(Settle(record, settleSeconds, settle));
                 yield return new WaitForEndOfFrame();
                 RenderTexture render = null;
                 try

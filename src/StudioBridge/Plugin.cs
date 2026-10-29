@@ -146,6 +146,7 @@ namespace StudioMcp.Bridge
 
         private void Update()
         {
+            CaptureCommands.TrackCamera();
             var budget = System.Diagnostics.Stopwatch.StartNew();
             for (var count = 0; count < 8 && budget.ElapsedMilliseconds < 4; count++)
             {
