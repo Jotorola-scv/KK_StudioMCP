@@ -3,6 +3,7 @@
 .references/
 .local/
 artifacts/
+publish/
 *.user
 *.suo
 __pycache__/

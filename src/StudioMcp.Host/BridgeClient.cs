@@ -38,7 +38,8 @@ public sealed class BridgeClient
         var result = JsonNode.Parse(response.ToArray())!.AsObject();
         if (result["id"]?.GetValue<string>() != id) throw new IOException("Bridge response id does not match.");
         if (result["ok"]?.GetValue<bool>() != true)
-            throw new InvalidOperationException(result["error"]?["message"]?.GetValue<string>() ?? "Bridge request failed.");
+            // McpException text reaches the client; other exceptions are reduced to a generic message.
+            throw new ModelContextProtocol.McpException(result["error"]?["message"]?.GetValue<string>() ?? "Bridge request failed.");
         return new JsonObject { ["result"] = result["result"]?.DeepClone() };
     }
 }

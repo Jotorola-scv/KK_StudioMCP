@@ -42,6 +42,7 @@ namespace StudioMcp.Bridge
                         _plugin.Rendering.OwnsSettings = ownedSettings;
                     });
                 }
+                else if (!Plugin.InStudio) restore.Add(_plugin.Maker.PrepareUndo(op, values));
                 else restore.Add(_plugin.Scene.PrepareUndo(op, values));
             }
             Clear();

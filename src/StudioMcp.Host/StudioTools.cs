@@ -8,8 +8,15 @@ namespace StudioMcp.Host;
 [McpServerToolType]
 public static class StudioTools
 {
-    [McpServerTool, Description("Inspect the Studio connection, scene session, installed providers and write permissions.")]
+    [McpServerTool, Description("Inspect the Studio connection, scene session, installed providers and write permissions. mode is studio or maker; in maker mode only the maker_*, material_*, camera_get/set, capture, batch_*, render_get and render_diagnostics tools work.")]
     public static Task<JsonObject> StudioStatus(BridgeClient bridge) => bridge.Call("status");
+
+    [McpServerTool, Description("Maker mode: read the maker character's name, coordinate, clothes/hair/accessory slots (list IDs, names, clothing states) and camera, plus the sceneSession needed for writes. Material tools take objectId 0 in the maker.")]
+    public static Task<JsonObject> MakerSnapshot(BridgeClient bridge) => bridge.Call("maker.snapshot");
+
+    [McpServerTool, Description("Maker mode: set a clothing slot's runtime state (0 on, 1 half, 2 half 2, 3 off) to inspect half-off variants. kind is a slot 0-8 or top/bottom/bra/shorts/gloves/pantyhose/socks/shoes_inner/shoes_outer. Not saved to the card.")]
+    public static Task<JsonObject> MakerSetClothesState(BridgeClient bridge, string sceneSession, string kind, int state)
+        => bridge.Call("maker.clothes_state", Args(new { sceneSession, kind = int.TryParse(kind, out var slot) ? (object)slot : kind, state }));
 
     [McpServerTool, Description("Search installed Studio items by display name, returning authoritative runtime catalog IDs and native light IDs.")]
     public static Task<JsonObject> CatalogSearch(BridgeClient bridge, string query, int limit = 50)
@@ -64,7 +71,7 @@ public static class StudioTools
     public static Task<JsonObject> CameraSlotLoad(BridgeClient bridge, string sceneSession, int slot)
         => bridge.Call("camera.slot_load", Args(new { sceneSession, slot }));
 
-    [McpServerTool, Description("List renderer handles, material slots and shaders for a Studio object. Handles are valid only for the current scene.")]
+    [McpServerTool, Description("List renderer handles, material slots and shaders for a Studio object. Handles are valid only for the current scene. In the maker, use objectId 0 for the maker character.")]
     public static Task<JsonObject> MaterialsList(BridgeClient bridge, int objectId)
         => bridge.Call("me.list", Args(new { objectId }));
 

@@ -1,5 +1,10 @@
 # StudioMCP
 
+> **Fork notice (maker-support):** this fork adds Koikatsu Sunshine **main-game character maker** support
+> to the same bridge, plus a material-cloning fix. See **[docs/Maker.md](docs/Maker.md)** (繁體中文 / English).
+> Modified 2026-10-29 from upstream [tomTom1010-IEE/KK_StudioMCP](https://github.com/tomTom1010-IEE/KK_StudioMCP)
+> `73f07bb`; AGPL-3.0 like upstream.
+
 An independent, local-only MCP bridge for Koikatsu Studio and Koikatsu Sunshine Studio.
 It consumes installed plugins' public APIs; it does not patch Material Editor source or save formats.
 

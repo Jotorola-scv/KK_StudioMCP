@@ -5,6 +5,7 @@ using System.Linq;
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
+using KKAPI.Maker;
 using KKAPI.Studio.SaveLoad;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -16,6 +17,12 @@ namespace StudioMcp.Bridge
 {
     [BepInPlugin("com.tomtom.studiomcp", "Studio MCP Bridge", "0.1.0")]
     [BepInProcess("CharaStudio.exe")]
+#if KK
+    [BepInProcess("Koikatu.exe")]
+    [BepInProcess("Koikatsu Party.exe")]
+#else
+    [BepInProcess("KoikatsuSunshine.exe")]
+#endif
     public sealed class Plugin : BaseUnityPlugin
     {
         internal static Plugin Instance;
@@ -33,6 +40,9 @@ namespace StudioMcp.Bridge
         internal RenderCommands Rendering;
         internal ToneCommands Tone;
         internal BatchCommands Batches;
+        internal MakerCommands Maker;
+        // The main game exposes only the character maker: one character, no Studio scene.
+        internal static readonly bool InStudio = Paths.ProcessName == "CharaStudio";
         internal string Session = Guid.NewGuid().ToString("N");
         internal string OutputRoot;
         internal bool WritesEnabled => _allowWrites.Value
@@ -53,7 +63,9 @@ namespace StudioMcp.Bridge
 #else
             const int defaultPort = 8846;
 #endif
-            var port = Config.Bind("Server", "Port", defaultPort).Value;
+            // Studio and the main game can run together, so the maker bridge needs its own port.
+            var port = InStudio ? Config.Bind("Server", "Port", defaultPort).Value
+                : Config.Bind("Maker", "Port", defaultPort + 2, "Loopback port used by the main game's character maker.").Value;
             _token = Config.Bind("Server", "Token", Guid.NewGuid().ToString("N")).Value;
             _allowWrites = Config.Bind("Server", "AllowWrites", false);
             OutputRoot = Path.Combine(Path.Combine(Paths.GameRootPath, "UserData"), "StudioMCP");
@@ -63,19 +75,27 @@ namespace StudioMcp.Bridge
             Capture = new CaptureCommands(this);
             Rendering = new RenderCommands();
             Tone = new ToneCommands();
-            StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
+            Maker = new MakerCommands(this);
+            if (InStudio) StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
             Batches = new BatchCommands(this);
             _originalBackground = Application.runInBackground;
             Application.runInBackground = true;
-            StudioSaveLoadApi.SceneLoad += SceneLoaded;
+            if (InStudio) StudioSaveLoadApi.SceneLoad += SceneLoaded;
+            else
+            {
+                // Renderer handles die when the maker reloads its character, like a Studio scene load.
+                MakerAPI.MakerBaseLoaded += MakerChanged;
+                MakerAPI.ReloadCustomInterface += MakerChanged;
+                MakerAPI.MakerExiting += MakerChanged;
+            }
             _server = new WebSocketServer("ws://127.0.0.1:" + port);
             _server.AddWebSocketService<BridgeSocket>("/bridge");
             _server.Start();
-            File.WriteAllText(Path.Combine(OutputRoot, "connection.json"), new JObject
+            File.WriteAllText(Path.Combine(OutputRoot, InStudio ? "connection.json" : "maker-connection.json"), new JObject
             {
                 ["url"] = "ws://127.0.0.1:" + port + "/bridge", ["token"] = _token,
                 ["processId"] = System.Diagnostics.Process.GetCurrentProcess().Id,
-                ["game"] = defaultPort == 8846 ? "KKS" : "KK"
+                ["game"] = defaultPort == 8846 ? "KKS" : "KK", ["mode"] = InStudio ? "studio" : "maker"
             }.ToString());
             Logger.LogInfo("Bridge listening on loopback port " + port + "; writes=" + WritesEnabled);
         }
@@ -85,6 +105,8 @@ namespace StudioMcp.Bridge
             Session = Guid.NewGuid().ToString("N");
             Batches.Clear();
         }
+
+        private void MakerChanged(object sender, EventArgs args) => SceneLoaded(sender, null);
 
         internal void Accept(string message, Action<string> reply)
         {
@@ -159,7 +181,8 @@ namespace StudioMcp.Bridge
         {
             if (method == "status") return new JObject
             {
-                ["sceneSession"] = Session, ["ready"] = Studio.Studio.Instance != null,
+                ["sceneSession"] = Session, ["mode"] = InStudio ? "studio" : "maker",
+                ["ready"] = InStudio ? Studio.Studio.Instance != null : MakerAPI.InsideAndLoaded,
                 ["writesEnabled"] = WritesEnabled, ["captureBusy"] = Capture.Busy,
                 ["plugins"] = new JArray(Chainloader.PluginInfos.Values.Where(p =>
                     p.Metadata.Name.IndexOf("Material", StringComparison.OrdinalIgnoreCase) >= 0
@@ -174,6 +197,7 @@ namespace StudioMcp.Bridge
             if (method.StartsWith("batch.", StringComparison.Ordinal)) return Batches.Execute(method, args);
             if (method == "render.get") return Rendering.State();
             if (method == "render.diagnostics") return Rendering.Diagnostics();
+            if (!InStudio || method.StartsWith("maker.", StringComparison.Ordinal)) return Maker.Execute(method, args);
             if (method == "render.set") return Rendering.Apply((JObject)args["values"]);
             if (method == "skybox.bind") return Rendering.BindSky(args);
             if (method == "tonemap.get") return Tone.State();
@@ -197,7 +221,7 @@ namespace StudioMcp.Bridge
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
                 || method == "me.render_queue"
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
-                || method == "object.set_visible" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
+                || method == "object.set_visible" || method == "maker.clothes_state" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject
@@ -206,7 +230,13 @@ namespace StudioMcp.Bridge
 
         private void OnDestroy()
         {
-            StudioSaveLoadApi.SceneLoad -= SceneLoaded;
+            if (InStudio) StudioSaveLoadApi.SceneLoad -= SceneLoaded;
+            else
+            {
+                MakerAPI.MakerBaseLoaded -= MakerChanged;
+                MakerAPI.ReloadCustomInterface -= MakerChanged;
+                MakerAPI.MakerExiting -= MakerChanged;
+            }
             _server?.Stop();
             if (!_originalBackground) Application.runInBackground = false;
             Instance = null;

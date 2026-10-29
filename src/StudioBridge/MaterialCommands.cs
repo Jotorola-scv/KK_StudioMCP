@@ -29,7 +29,7 @@ namespace StudioMcp.Bridge
 
         internal JToken Execute(string method, JObject args)
         {
-            if (method == "me.list") return List((int)args["objectId"]);
+            if (method == "me.list") return List((int?)args["objectId"] ?? 0);
             var target = Resolve(args);
             if (method == "me.inspect") return Inspect(target);
             if (method == "me.render_queue")
@@ -155,31 +155,38 @@ namespace StudioMcp.Bridge
 
         internal Target Resolve(JObject args)
         {
-            var id = (int)args["objectId"];
-            var owner = _plugin.Scene.GetObject(id);
-            var root = SceneCommands.Root(owner);
+            var id = (int?)args["objectId"] ?? 0;
+            ChaControl character;
+            var root = Owner(id, out character);
             if (root == null) throw new ArgumentException("Object has no editable material root.");
             var renderer = root.GetComponentsInChildren<Renderer>(true)
                 .FirstOrDefault(r => r.GetInstanceID() == (int)args["rendererId"]);
             if (renderer == null) throw new ArgumentException("Renderer handle is stale or belongs to another object.");
-            var materials = renderer.materials;
+            var materials = renderer.sharedMaterials;
             var slot = (int?)args["slot"] ?? 0;
             if (slot < 0 || slot >= materials.Length || materials[slot] == null) throw new ArgumentOutOfRangeException("slot");
-            var target = MakeTarget(id, owner, renderer, materials[slot], slot);
+            var target = MakeTarget(id, character, root, renderer, materials[slot], slot);
             if (args["materialId"] != null && (int)args["materialId"] != target.Material.GetInstanceID())
                 throw new InvalidOperationException("Material identity changed; inspect it again.");
             return target;
         }
 
-        private Target MakeTarget(int id, ObjectCtrlInfo owner, Renderer renderer, Material material, int slot)
+        // Studio objects come from the scene; the maker always edits its single character, so objectId is ignored there.
+        private GameObject Owner(int id, out ChaControl character)
         {
-            var target = new Target { ObjectId = id, Root = SceneCommands.Root(owner), Renderer = renderer, Material = material, Slot = slot };
-            var character = owner as OCIChar;
-            if (character == null)
+            if (!Plugin.InStudio) { character = MakerCommands.Character(); return character.gameObject; }
+            var owner = _plugin.Scene.GetObject(id);
+            character = (owner as OCIChar)?.charInfo;
+            return SceneCommands.Root(owner);
+        }
+
+        private Target MakeTarget(int id, ChaControl cha, GameObject root, Renderer renderer, Material material, int slot)
+        {
+            var target = new Target { ObjectId = id, Root = root, Renderer = renderer, Material = material, Slot = slot };
+            if (cha == null)
                 target.Controller = Chainloader.ManagerObject.GetComponentInChildren(RequiredType("KK_Plugins.MaterialEditor.SceneController"));
             else
             {
-                var cha = character.charInfo;
                 target.Controller = cha.GetComponent(RequiredType("KK_Plugins.MaterialEditor.MaterialEditorCharaController"));
                 target.Scope = "Character";
                 // Part roots must win over the enclosing character root, including inactive parts.
@@ -200,17 +207,17 @@ namespace StudioMcp.Bridge
 
         private JArray List(int id)
         {
-            var owner = _plugin.Scene.GetObject(id);
-            var root = SceneCommands.Root(owner);
+            ChaControl character;
+            var root = Owner(id, out character);
             var result = new JArray();
             if (root == null) return result;
             foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
             {
-                var materials = renderer.materials;
+                var materials = renderer.sharedMaterials;
                 for (var slot = 0; slot < materials.Length; slot++)
                 {
                     if (materials[slot] == null) continue;
-                    var target = MakeTarget(id, owner, renderer, materials[slot], slot);
+                    var target = MakeTarget(id, character, root, renderer, materials[slot], slot);
                     result.Add(new JObject { ["objectId"] = id, ["rendererId"] = renderer.GetInstanceID(),
                         ["renderer"] = renderer.name, ["layer"] = renderer.gameObject.layer, ["slot"] = slot, ["materialId"] = materials[slot].GetInstanceID(),
                         ["name"] = materials[slot].name, ["shader"] = materials[slot].shader.name,
@@ -305,7 +312,7 @@ namespace StudioMcp.Bridge
 
         private static string Formatted(Material material) => material.name.Replace(" (Instance)", "").Trim();
         private static JArray MatchingMaterials(Target target) => new JArray(target.Root.GetComponentsInChildren<Renderer>(true)
-            .Where(r => r.materials.Any(m => m != null && Formatted(m) == Formatted(target.Material)))
+            .Where(r => r.sharedMaterials.Any(m => m != null && Formatted(m) == Formatted(target.Material)))
             .Select(r => new JObject { ["rendererId"] = r.GetInstanceID(), ["renderer"] = r.name }));
 
         internal static Color ColorValue(JToken value)
