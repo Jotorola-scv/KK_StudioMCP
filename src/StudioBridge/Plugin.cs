@@ -41,6 +41,7 @@ namespace StudioMcp.Bridge
         internal ToneCommands Tone;
         internal BatchCommands Batches;
         internal MakerCommands Maker;
+        internal CharacterCommands Characters;
         // The main game exposes only the character maker: one character, no Studio scene.
         internal static readonly bool InStudio = Paths.ProcessName == "CharaStudio";
         internal string Session = Guid.NewGuid().ToString("N");
@@ -76,6 +77,7 @@ namespace StudioMcp.Bridge
             Rendering = new RenderCommands();
             Tone = new ToneCommands();
             Maker = new MakerCommands(this);
+            Characters = new CharacterCommands(this);
             if (InStudio) StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
             Batches = new BatchCommands(this);
             _originalBackground = Application.runInBackground;
@@ -197,6 +199,7 @@ namespace StudioMcp.Bridge
             if (method.StartsWith("batch.", StringComparison.Ordinal)) return Batches.Execute(method, args);
             if (method == "render.get") return Rendering.State();
             if (method == "render.diagnostics") return Rendering.Diagnostics();
+            if (method.StartsWith("chara.", StringComparison.Ordinal) || method == "mesh.export") return Characters.Execute(method, args);
             if (!InStudio || method.StartsWith("maker.", StringComparison.Ordinal)) return Maker.Execute(method, args);
             if (method == "render.set") return Rendering.Apply((JObject)args["values"]);
             if (method == "skybox.bind") return Rendering.BindSky(args);
@@ -221,7 +224,7 @@ namespace StudioMcp.Bridge
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
                 || method == "me.render_queue"
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
-                || method == "object.set_visible" || method == "maker.clothes_state" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
+                || method == "object.set_visible" || method == "maker.clothes_state" || method == "chara.shape_set" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject

@@ -1,4 +1,4 @@
-// Added 2026-10-29 in the maker-support fork of KK_StudioMCP (AGPL-3.0); see docs/Maker.md.
+// Added 2026-10-29 in the maker-support fork of KK_StudioMCP (AGPL-3.0); see README.md.
 using System;
 using KKAPI.Maker;
 using Newtonsoft.Json.Linq;

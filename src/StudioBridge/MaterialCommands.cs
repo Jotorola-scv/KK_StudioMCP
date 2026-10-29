@@ -172,7 +172,7 @@ namespace StudioMcp.Bridge
         }
 
         // Studio objects come from the scene; the maker always edits its single character, so objectId is ignored there.
-        private GameObject Owner(int id, out ChaControl character)
+        internal GameObject Owner(int id, out ChaControl character)
         {
             if (!Plugin.InStudio) { character = MakerCommands.Character(); return character.gameObject; }
             var owner = _plugin.Scene.GetObject(id);
@@ -188,21 +188,24 @@ namespace StudioMcp.Bridge
             else
             {
                 target.Controller = cha.GetComponent(RequiredType("KK_Plugins.MaterialEditor.MaterialEditorCharaController"));
-                target.Scope = "Character";
-                // Part roots must win over the enclosing character root, including inactive parts.
-                if (!FindPart(target, cha.GetAccessoryObjects(), "Accessory") && !FindPart(target, cha.objClothes, "Clothing"))
-                    FindPart(target, cha.objHair, "Hair");
+                GameObject part;
+                target.Scope = PartOf(cha, renderer.transform, out target.PartSlot, out part);
+                if (part != null) target.Root = part;
             }
             if (target.Controller == null) throw new InvalidOperationException("Material Editor controller is not ready.");
             return target;
         }
 
-        private static bool FindPart(Target target, GameObject[] parts, string scope)
+        // Part roots must win over the enclosing character root, including inactive parts.
+        internal static string PartOf(ChaControl cha, Transform transform, out int slot, out GameObject part)
         {
-            for (var i = 0; i < parts.Length; i++)
-                if (parts[i] != null && target.Renderer.transform.IsChildOf(parts[i].transform))
-                { target.Root = parts[i]; target.PartSlot = i; target.Scope = scope; return true; }
-            return false;
+            foreach (var group in new[] { new { Parts = cha.GetAccessoryObjects(), Scope = "Accessory" },
+                new { Parts = cha.objClothes, Scope = "Clothing" }, new { Parts = cha.objHair, Scope = "Hair" } })
+                for (var i = 0; i < group.Parts.Length; i++)
+                    if (group.Parts[i] != null && transform.IsChildOf(group.Parts[i].transform))
+                    { slot = i; part = group.Parts[i]; return group.Scope; }
+            slot = 0; part = null;
+            return "Character";
         }
 
         private JArray List(int id)

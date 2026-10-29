@@ -14,6 +14,20 @@ public static class StudioTools
     [McpServerTool, Description("Maker mode: read the maker character's name, coordinate, clothes/hair/accessory slots (list IDs, names, clothing states) and camera, plus the sceneSession needed for writes. Material tools take objectId 0 in the maker.")]
     public static Task<JsonObject> MakerSnapshot(BridgeClient bridge) => bridge.Call("maker.snapshot");
 
+    [McpServerTool, Description("Read a character's body (44 sliders) or face shape values with index, English key and in-game name. Maker sliders show value*100. objectId is the Studio character, or 0 in the maker.")]
+    public static Task<JsonObject> ShapeGet(BridgeClient bridge, int objectId = 0, string part = "body")
+        => bridge.Call("chara.shape_get", Args(new { objectId, part }));
+
+    [McpServerTool, Description("Set body or face shape sliders like the maker does, e.g. values {\"bust_size\": 0.9, \"waist_position\": 0.4} (keys: index, English key or in-game name; 0..1 is the normal slider range, -10..10 allowed). Saved in the card/scene. Usable in batch_apply as chara.shape_set for one-step undo.")]
+    public static Task<JsonObject> ShapeSet(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement values,
+        int objectId = 0, string part = "body")
+        => bridge.Call("chara.shape_set", Args(new { sceneSession, objectId, part, values }));
+
+    [McpServerTool, Description("Export a character's current meshes (pose, body shape and blend shapes baked) to OBJ+MTL with _MainTex PNGs under UserData/StudioMCP/exports, for checking clothing fit/clipping in Blender. scopes: Character, Clothing, Hair, Accessory (default all). Hidden or taken-off parts are skipped unless includeInactive; shadow/highlight/silhouette helper meshes unless includeHelpers. objectId is the Studio character, or 0 in the maker.")]
+    public static Task<JsonObject> MeshExport(BridgeClient bridge, int objectId = 0, string[]? scopes = null,
+        bool includeInactive = false, bool textures = true, string? name = null, bool includeHelpers = false)
+        => bridge.Call("mesh.export", Args(new { objectId, scopes, includeInactive, textures, name, includeHelpers }));
+
     [McpServerTool, Description("Maker mode: set a clothing slot's runtime state (0 on, 1 half, 2 half 2, 3 off) to inspect half-off variants. kind is a slot 0-8 or top/bottom/bra/shorts/gloves/pantyhose/socks/shoes_inner/shoes_outer. Not saved to the card.")]
     public static Task<JsonObject> MakerSetClothesState(BridgeClient bridge, string sceneSession, string kind, int state)
         => bridge.Call("maker.clothes_state", Args(new { sceneSession, kind = int.TryParse(kind, out var slot) ? (object)slot : kind, state }));
@@ -168,7 +182,7 @@ public static class StudioTools
     public static Task<JsonObject> SceneRestore(BridgeClient bridge, string sceneSession, string path)
         => bridge.Call("scene.restore", Args(new { sceneSession, path }));
 
-    [McpServerTool, Description("Apply 1-32 operations synchronously. Each is {method,args}; allowlist: me.set Float/Color, object.set_transform, camera.set, render.set. Prevalidates and rolls back on failure; returns a batchId for one-level undo.")]
+    [McpServerTool, Description("Apply 1-32 operations synchronously. Each is {method,args}; allowlist: me.set Float/Color, chara.shape_set, object.set_transform, camera.set, render.set. Prevalidates and rolls back on failure; returns a batchId for one-level undo.")]
     public static Task<JsonObject> BatchApply(BridgeClient bridge, string sceneSession, System.Text.Json.JsonElement operations)
         => bridge.Call("batch.apply", Args(new { sceneSession, operations }));
 
