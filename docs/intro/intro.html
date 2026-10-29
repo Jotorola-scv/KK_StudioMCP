@@ -17,7 +17,7 @@
     --amber: #ffc46b;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 1600px; height: 2380px; overflow: hidden; }
+  html, body { width: 1600px; height: 3820px; overflow: hidden; }
   body {
     background:
       radial-gradient(900px 500px at 85% -5%, rgba(143,128,255,.22), transparent 60%),
@@ -53,6 +53,11 @@
   .cap-zh { font-size: 20px; font-weight: 700; }
   .cap-en { font-size: 15.5px; color: var(--muted); margin-top: 4px; }
   /* legend */
+  .wideshot { margin-top: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
+  .wideshot .img { height: 364px; background: #000 center / cover no-repeat; position: relative; }
+  .wideshot .cap { padding: 16px 24px 20px; display: flex; justify-content: space-between; align-items: baseline; gap: 24px; }
+  .stat { font-size: 15px; color: var(--muted); white-space: nowrap; }
+  .stat b { color: var(--pink); font-size: 20px; }
   .legend { display: flex; align-items: center; gap: 22px; margin-top: 40px; font-size: 16px; color: var(--muted); }
   .legend h2 { font-size: 30px; color: var(--text); margin-right: 8px; }
   .legend h2 span { font-size: 18px; color: var(--muted); font-weight: 600; margin-left: 10px; }
@@ -88,8 +93,8 @@
     <div>
       <div class="eyebrow en">Koikatsu Sunshine · Koikatsu · MCP</div>
       <h1>StudioMCP <span class="grad">Maker 版</span></h1>
-      <div class="tag-zh">讓 AI agent 直接檢查、修正戀活角色的材質、服裝與身型</div>
-      <div class="tag-en en">Let AI agents inspect and fix Koikatsu characters — in Studio and the main-game character maker</div>
+      <div class="tag-zh">讓 AI agent 直接檢查、修正戀活角色的材質、服裝、身型與拼接髮</div>
+      <div class="tag-en en">Let AI agents inspect and fix Koikatsu characters, outfits and spliced hair — in Studio and the character maker</div>
     </div>
     <div class="badges en">
       <div class="badge-row"><span class="badge hot">KKS</span><span class="badge hot">KK</span></div>
@@ -118,6 +123,19 @@
         <div class="cap-zh">匯出目前的網格，在 Blender 量測穿模與權重</div>
         <div class="cap-en en">Export the posed, shaped meshes (OBJ + textures) and inspect the fit in Blender</div>
       </div>
+    </div>
+  </section>
+
+  <section class="wideshot">
+    <div class="img" style="background-image:url('gap_demo.png')">
+      <span class="pill en">hair_check → capture_turntable(markers)</span>
+    </div>
+    <div class="cap">
+      <div>
+        <div class="cap-zh">拼接髮檢查：量測頭皮覆蓋率，紅點標出露出頭皮的缺口，並找出是哪一塊髮片跑掉</div>
+        <div class="cap-en en">Spliced hair: measure scalp coverage, mark exposed scalp in red, and find which hair piece slipped</div>
+      </div>
+      <div class="stat en">coverage <b>100% → 89%</b> · slot 6 covers <b>104 → 22</b></div>
     </div>
   </section>
 
@@ -174,6 +192,45 @@
           <div class="e en">Hidden parts and helper meshes are skipped unless asked</div></div>
       </div>
     </div>
+    <!-- spliced hair: adjust -->
+    <div class="card">
+      <div class="head"><div class="ico">💇</div>
+        <div class="titles"><h3>拼接髮調整</h3><div class="h3-en en">Accessory &amp; hair pieces</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">像 Maker 的飾品面板一樣調整，支援 MoreAccessories 第 20 格以後，存進卡片。<br><span class="en">Like the maker's accessory panel, including MoreAccessories slots.</span></div>
+      <div class="tools">
+        <div class="tool"><code>accessory_list</code>
+          <div class="zh">清單 ID、掛載骨骼、兩組位置／旋轉／縮放、顏色、是否為頭髮</div>
+          <div class="e en">IDs, parent bone, both move corrections, colors, hair flag</div></div>
+        <div class="tool"><code>accessory_set</code>
+          <div class="zh">絕對或相對（add）位移、換掛載骨骼、改顏色；可批次復原</div>
+          <div class="e en">Absolute or relative moves, parent, colors; batch undo</div></div>
+        <div class="tool"><code>hair {colorMatch, hairGloss, …}</code>
+          <div class="zh">Hair Accessory Customizer：跟隨髮色、光澤、描邊、長度</div>
+          <div class="e en">Hair Accessory Customizer color match, gloss, outline, length</div></div>
+      </div>
+    </div>
+    <!-- spliced hair: check (wide) -->
+    <div class="card wide">
+      <div class="head"><div class="ico">🧩</div>
+        <div class="titles"><h3>拼接髮檢查</h3><div class="h3-en en">Spliced-hair check</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">用網格與射線量測，數據化判斷拼接是否合理；agent 可以「調整 → 量測 → 再調整」直到達標。<br><span class="en">Geometry and raycasts turn "does the hair look right" into numbers the agent can iterate on.</span></div>
+      <div class="tools">
+        <div class="tool"><code>hair_check · coverage</code>
+          <div class="zh">頭頂、後腦、左右的頭皮覆蓋率；瀏海另計，耳朵自動排除</div>
+          <div class="e en">Scalp coverage for top, back and sides; forehead separate, ears excluded</div></div>
+        <div class="tool"><code>gaps · candidates</code>
+          <div class="zh">每個缺口列出最近的三塊髮片與換算好的建議位移</div>
+          <div class="e en">Each gap lists the three closest pieces with ready-made moves</div></div>
+        <div class="tool"><code>pieces · covers</code>
+          <div class="zh">每塊髮片覆蓋多少頭皮，前後比較就知道哪一塊跑掉；浮起判斷</div>
+          <div class="e en">Scalp covered per piece reveals the one that slipped; floating check</div></div>
+        <div class="tool"><code>consistency</code>
+          <div class="zh">髮片顏色與光澤是否一致，列出顏色或光澤不同的格位</div>
+          <div class="e en">Flags pieces whose color or gloss differs from the rest</div></div>
+      </div>
+    </div>
     <!-- materials (wide) -->
     <div class="card wide">
       <div class="head"><div class="ico">🎨</div>
@@ -219,6 +276,9 @@
         <div class="tool"><code>capture</code>
           <div class="zh">透過 Screencap 渲染不含 UI 的截圖，可去背或半透明去背</div>
           <div class="e en">Clean Screencap renders, with cutout or gradual alpha</div></div>
+        <div class="tool"><code>capture_turntable</code>
+          <div class="zh">一次環繞多角度截圖拼成一張，可用紅點標出缺口（隔著頭髮也看得到）</div>
+          <div class="e en">Multi-view contact sheet with markers visible through hair</div></div>
         <div class="tool"><code>camera_slot_save · load</code> <span class="scope studio en">STUDIO</span>
           <div class="zh">存取 Studio 的鏡頭槽位</div>
           <div class="e en">Studio camera slots</div></div>
@@ -233,6 +293,53 @@
           <div class="e en">Connection, mode, write access, providers</div></div>
       </div>
     </div>
+    <!-- motion & physics -->
+    <div class="card">
+      <div class="head"><div class="ico">💃</div>
+        <div class="titles"><h3>表情、姿勢與物理</h3><div class="h3-en en">Expression, pose &amp; physics</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="tools">
+        <div class="tool"><code>expression_get · expression_set</code>
+          <div class="zh">眼、嘴、眉的表情與開合，檢查瀏海與表情</div>
+          <div class="e en">Eyes, mouth, eyebrows and openness</div></div>
+        <div class="tool"><code>pose_list · pose_set</code> <span class="scope maker en">MAKER</span>
+          <div class="zh">切換 Maker 預覽姿勢，檢查動作下的頭髮與服裝</div>
+          <div class="e en">Maker preview poses for checking motion</div></div>
+        <div class="tool"><code>dynamic_bones_get · set</code>
+          <div class="zh">髮片物理的阻尼、彈性、硬度、慣性、半徑，存進卡片</div>
+          <div class="e en">Hair physics via DynamicBone Editor, saved with the card</div></div>
+      </div>
+    </div>
+    <!-- ABMX -->
+    <div class="card">
+      <div class="head"><div class="ico">🦴</div>
+        <div class="titles"><h3>ABMX 骨骼</h3><div class="h3-en en">ABMX bones</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">頭部、頸部的骨骼縮放常是髮片對不齊的原因。<br><span class="en">Head and neck scaling often explains misaligned hair.</span></div>
+      <div class="tools">
+        <div class="tool"><code>bones_get</code>
+          <div class="zh">讀取骨骼修改與所有可修改的骨骼名稱</div>
+          <div class="e en">Current modifiers and every modifiable bone</div></div>
+        <div class="tool"><code>bones_set</code>
+          <div class="zh">縮放、位置、旋轉、長度；存進卡片，可批次復原</div>
+          <div class="e en">Scale, position, rotation, length; batch undo</div></div>
+      </div>
+    </div>
+    <!-- clipping sweep -->
+    <div class="card">
+      <div class="head"><div class="ico">🧪</div>
+        <div class="titles"><h3>自動穿模掃描</h3><div class="h3-en en">Clipping sweep</div></div>
+        <span class="scope both en">STUDIO + MAKER</span></div>
+      <div class="lead">移植服裝時不用再一個個手動推身型滑桿。<br><span class="en">No more pushing every slider by hand when porting outfits.</span></div>
+      <div class="tools">
+        <div class="tool"><code>clipping_sweep</code>
+          <div class="zh">把身型滑桿推到指定數值，計算身體從服裝穿出的點數、深度與熱點，結束後還原</div>
+          <div class="e en">Poke-through points, depth and hotspots per slider step, then restored</div></div>
+        <div class="tool"><code>accessorySlots · bodyShiftMm</code>
+          <div class="zh">可加入飾品服裝；回報每一步身體實際位移</div>
+          <div class="e en">Accessory garments included; per-step body shift reported</div></div>
+      </div>
+    </div>
     <!-- batch & safety -->
     <div class="card">
       <div class="head"><div class="ico">↩️</div>
@@ -240,7 +347,7 @@
         <span class="scope both en">STUDIO + MAKER</span></div>
       <div class="tools">
         <div class="tool"><code>batch_apply</code>
-          <div class="zh">一次執行最多 32 個材質、身型、鏡頭修改；先全部驗證，失敗自動回滾</div>
+          <div class="zh">一次執行最多 32 個材質、身型、飾品、骨骼、鏡頭修改；先全部驗證，失敗自動回滾</div>
           <div class="e en">Up to 32 edits, prevalidated, rolled back on failure</div></div>
         <div class="tool"><code>batch_undo</code>
           <div class="zh">一鍵復原最近一次批次</div>

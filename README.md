@@ -1,8 +1,10 @@
 # StudioMCP Maker 版（Koikatsu Sunshine／Koikatsu）
 
 讓 Claude、Codex 等 AI agent 直接操作 **Koikatsu Sunshine（KKS）與 Koikatsu（KK）的 Studio 與本體角色 Maker**：查看並修改角色材質、
-shader、貼圖、服裝穿脫、身型滑桿，截圖比較，以及把角色網格匯出到 Blender 檢查服裝穿模。
-特別適合**移植模型／服裝**時即時檢查問題。
+shader、貼圖、服裝穿脫、身型滑桿，調整拼接髮並量測頭皮覆蓋，自動掃描服裝穿模，環繞截圖比較，以及把角色網格匯出到 Blender。
+特別適合**移植模型／服裝**與**拼接髮**時即時檢查問題。
+
+![StudioMCP Maker 版功能介紹](docs/images/maker-intro.png)
 
 本專案改編自 [tomTom1010-IEE/KK_StudioMCP](https://github.com/tomTom1010-IEE/KK_StudioMCP)（原版只支援 Studio），
 沿用 AGPL-3.0 授權。[English summary](#english-summary)
@@ -53,10 +55,26 @@ KK 與 KKS、Studio 與本體都可以同時開，各自使用不同的埠與 MC
 | `material_reset` | 還原某屬性的原始值 |
 | `camera_get` / `camera_set` | 讀取／設定鏡頭 |
 | `capture` | 渲染截圖（不含 UI），可選去背模式 |
-| `batch_apply` / `batch_undo` | 一次執行多個修改（材質、身型、鏡頭），可一鍵復原 |
+| `capture_turntable` | 一次從多個角度環繞截圖並拼成一張；可用紅點標出 `hair_check` 找到的缺口（隔著頭髮也看得到） |
+| `batch_apply` / `batch_undo` | 一次執行多個修改（材質、身型、飾品、ABMX、鏡頭），可一鍵復原 |
 | `render_get` / `render_diagnostics` | 唯讀的燈光、反射探針、相機深度資訊 |
 
 材質修改都透過 Material Editor 保存。在 Maker 裡 `objectId` 一律填 `0`；在 Studio 裡填角色或物件的 ID。
+
+### 拼接髮與移植檢查（Studio 與 Maker 都能用）
+
+| 工具 | 功能 |
+|---|---|
+| `accessory_list` | 列出飾品：清單 ID 與名稱、掛載骨骼、兩組微調（位置／旋轉／縮放）、顏色、是否為頭髮，以及 Hair Accessory Customizer 的跟隨髮色、光澤、描邊、長度 |
+| `accessory_set` | 像 Maker 的飾品面板一樣調整：位置／旋轉／縮放（絕對值或 `add` 相對值）、換掛載骨骼、改顏色、Hair Accessory Customizer 設定；存進卡片，支援 MoreAccessories 第 20 格以後 |
+| `hair_check` | 量測拼接髮：頭頂／後腦／左右的頭皮覆蓋率（瀏海另計，耳朵排除）；每個缺口列出三個最近的髮片與建議位移；每個髮片的覆蓋點數（`covers`，前後比較可找出跑掉的髮片）與浮起判斷；髮片顏色與光澤是否一致 |
+| `clipping_sweep` | 自動把身型滑桿推到指定數值，計算身體從服裝（也可加入飾品服裝）穿出的點數、深度、部位與熱點，結束後還原 |
+| `expression_get` / `expression_set` | 切換眼、嘴、眉的表情與開合，檢查瀏海與表情的搭配 |
+| `dynamic_bones_get` / `dynamic_bone_set` | 讀取與調整飾品（髮片）物理的阻尼、彈性、硬度、慣性、半徑；透過 DynamicBone Editor 存進卡片 |
+| `bones_get` / `bones_set` | 讀取與調整 ABMX 骨骼的縮放、位置、旋轉、長度（頭部、頸部縮放常是髮片對不齊的原因）；存進卡片 |
+
+**拼接髮調整流程**：`hair_check` 找缺口 → `capture_turntable` 帶 `markers` 看位置 → 用 `accessory_set`（放進 `batch_apply`）依建議位移調整 →
+再跑 `hair_check` 直到覆蓋率達標；不滿意就 `batch_undo`。
 
 ### Maker 專用
 
@@ -64,6 +82,7 @@ KK 與 KKS、Studio 與本體都可以同時開，各自使用不同的埠與 MC
 |---|---|
 | `maker_snapshot` | 角色名稱、目前服裝套數、服裝 9 格／頭髮／飾品的清單 ID 與名稱、穿脫狀態、鏡頭，以及寫入用的 `sceneSession` |
 | `maker_set_clothes_state` | 切換部位：0 穿著、1 半脫、2 半脫 2、3 脫掉（暫時狀態，不存卡），用來檢查半脫穿模 |
+| `pose_list` / `pose_set` | 切換 Maker 預覽姿勢（`-1` 回到預設），檢查動作下的頭髮與服裝 |
 
 `shape_set` 會同步更新 Maker 的滑桿畫面。有安裝 Pushup 外掛時，胸部相關滑桿（4–13）會一併寫入 Pushup 的原始值，
 不會在換裝或切換穿脫後被還原；`shape_get` 的 `value` 是卡片存的滑桿值，`displayed` 是穿著胸罩／上衣時 Pushup 實際套用的值。
@@ -106,7 +125,8 @@ dotnet build src/StudioBridge/StudioBridge.csproj -c Release -p:Game=KKS -p:Game
 ## 相對原專案的修改
 
 - **本體 Maker 支援**：同一顆 DLL 依程式名稱切換 Studio／Maker 模式；Maker 使用獨立的埠與連線檔 `maker-connection.json`，並在 Maker 重新載入角色時更新 session。
-- **新工具**：`maker_snapshot`、`maker_set_clothes_state`、`shape_get`、`shape_set`（可批次復原）、`mesh_export`。
+- **新工具**：`maker_snapshot`、`maker_set_clothes_state`、`shape_get`、`shape_set`、`mesh_export`、`accessory_list`、`accessory_set`、
+  `hair_check`、`clipping_sweep`、`capture_turntable`、`expression_get/set`、`pose_list/set`、`dynamic_bones_get`、`dynamic_bone_set`、`bones_get/set`。
 - **修正材質被複製的問題**：原版讀取 `renderer.materials`，每次呼叫都會複製所有材質，讓遊戲持有的原材質失效；改為 `sharedMaterials`（與 Material Editor 一致）。
 - **錯誤訊息**：host 會把遊戲端的實際錯誤原因傳給 agent，原版只顯示「An error occurred invoking」。
 - **懶人安裝**：host 內建 `install`／`uninstall`，`Install.bat` 自動準備 .NET 8 Runtime、安裝外掛並註冊到 Claude Code、Claude Desktop、Codex；KK 與 KKS 各有安裝包。
@@ -131,7 +151,10 @@ character's baked meshes (OBJ + MTL + textures) to check clothing fit in Blender
   The host runs under Microsoft's signed `dotnet.exe` (Install.bat installs the .NET 8 Runtime via winget if missing; no
   custom exe, so antivirus heuristics stay quiet). It copies the bridge, enables writes (`--read-only` to skip) and
   registers `studiomcp`/`kksmaker` (KKS) or `kkstudiomcp`/`kkmaker` (KK) with Claude Code, Claude Desktop and Codex.
-- **New tools**: `maker_snapshot`, `maker_set_clothes_state`, `shape_get`, `shape_set`, `mesh_export`; all
+- **New tools**: `maker_snapshot`, `maker_set_clothes_state`, `shape_get`, `shape_set`, `mesh_export`; spliced-hair tools
+  `accessory_list`, `accessory_set` (MoreAccessories slots, Hair Accessory Customizer) and `hair_check` (scalp coverage, gaps with
+  candidate pieces and suggested moves, color/gloss consistency); `clipping_sweep`, `capture_turntable` (multi-view sheet with gap
+  markers), `expression_get/set`, `pose_list/set`, `dynamic_bones_get`/`dynamic_bone_set` and ABMX `bones_get/set`. All
   `material_*`, `camera_*`, `capture` and `batch_*` tools also work in the maker (`objectId: 0`).
 - **Fixes**: the bridge reads `sharedMaterials` instead of cloning every material on each call; the host forwards
   the bridge's error text; bust sliders are mirrored into Pushup's base data so clothing changes don't revert them.

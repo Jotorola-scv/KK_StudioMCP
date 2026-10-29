@@ -3,7 +3,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$GameRoot,
     [ValidateSet('KKS', 'KK')][string]$Game = 'KKS',
-    [string]$Version = '0.1.0-maker.2'
+    [string]$Version = '0.1.0-maker.3'
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
