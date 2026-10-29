@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Linq;
+using KKAPI.Maker;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
@@ -17,7 +18,8 @@ namespace StudioMcp.Bridge
         {
             var character = _plugin.Characters.Character((int?)args["objectId"] ?? 0);
             var controller = Controller(character);
-            if (method == "chara.bones_get") return List(character, controller, (string)args["filter"], (bool?)args["allNames"] ?? false);
+            var slot = (int?)args["slot"];
+            if (method == "chara.bones_get") return List(character, controller, (string)args["filter"], (bool?)args["allNames"] ?? false, slot);
             if (method != "chara.bones_set") throw new ArgumentException("Unsupported bone method: " + method);
             var bone = (string)args["bone"];
             if (string.IsNullOrEmpty(bone)) throw new ArgumentException("bone is required (see bones_get with allNames).");
@@ -28,8 +30,8 @@ namespace StudioMcp.Bridge
             if (!values.HasValues) throw new ArgumentException("Give scale, position, rotation or length.");
             if (args["scale"] != null && Vector3Abs(SceneCommands.Vector(args["scale"])) > 20)
                 throw new ArgumentOutOfRangeException("scale");
-            Set(character, controller, bone, values);
-            return List(character, controller, bone, false);
+            Set(character, controller, bone, values, slot);
+            return List(character, controller, bone, false, slot);
         }
 
         internal Action PrepareUndo(JObject args)
@@ -37,10 +39,11 @@ namespace StudioMcp.Bridge
             var character = _plugin.Characters.Character((int?)args["objectId"] ?? 0);
             var controller = Controller(character);
             var bone = (string)args["bone"];
-            var data = Data(character, controller, bone, false);
+            var slot = (int?)args["slot"];
+            var data = Data(character, controller, bone, false, slot);
             JObject saved = data == null ? new JObject { ["scale"] = new JArray(1, 1, 1), ["position"] = new JArray(0, 0, 0),
                 ["rotation"] = new JArray(0, 0, 0), ["length"] = 1 } : Describe(data);
-            return () => Set(character, controller, bone, saved);
+            return () => Set(character, controller, bone, saved, slot);
         }
 
         private static float Vector3Abs(Vector3 v) => Mathf.Max(Mathf.Abs(v.x), Mathf.Max(Mathf.Abs(v.y), Mathf.Abs(v.z)));
@@ -51,14 +54,22 @@ namespace StudioMcp.Bridge
             return character.GetComponent(type) ?? throw new InvalidOperationException("ABMX controller is not ready on this character.");
         }
 
-        private static object BodyTop() => Enum.Parse(MaterialCommands.FindType("KKABMX.Core.BoneLocation"), "BodyTop");
+        // ABMX addresses accessory bones as Accessory0 + slot, past the named enum values for MoreAccessories slots.
+        private static object Location(int? slot)
+        {
+            var type = MaterialCommands.FindType("KKABMX.Core.BoneLocation");
+            if (slot == null) return Enum.Parse(type, "BodyTop");
+            if (slot < 0) throw new ArgumentOutOfRangeException("slot");
+            return Enum.ToObject(type, Convert.ToInt32(Enum.Parse(type, "Accessory0")) + slot.Value);
+        }
 
         // A coordinate-specific modifier keeps one data block per outfit; otherwise block 0 applies to all outfits.
-        private static object Data(ChaControl character, Component controller, string bone, bool create)
+        private static object Data(ChaControl character, Component controller, string bone, bool create, int? slot)
         {
+            var location = Location(slot);
             var modifier = create
-                ? controller.GetType().GetMethod("GetOrAddModifier").Invoke(controller, new[] { bone, BodyTop() })
-                : controller.GetType().GetMethod("GetModifier", new[] { typeof(string), BodyTop().GetType() }).Invoke(controller, new[] { bone, BodyTop() });
+                ? controller.GetType().GetMethod("GetOrAddModifier").Invoke(controller, new[] { bone, location })
+                : controller.GetType().GetMethod("GetModifier", new[] { typeof(string), location.GetType() }).Invoke(controller, new[] { bone, location });
             if (modifier == null) return null;
             var blocks = (Array)modifier.GetType().GetProperty("CoordinateModifiers").GetValue(modifier, null);
             var specific = (bool)modifier.GetType().GetMethod("IsCoordinateSpecific").Invoke(modifier, null);
@@ -66,9 +77,16 @@ namespace StudioMcp.Bridge
             return blocks.GetValue(index);
         }
 
-        private static void Set(ChaControl character, Component controller, string bone, JObject values)
+        private static void Set(ChaControl character, Component controller, string bone, JObject values, int? slot)
         {
-            var data = Data(character, controller, bone, true) ?? throw new ArgumentException("ABMX cannot modify bone " + bone + ".");
+            if (slot != null)
+            {
+                var objects = character.GetAccessoryObjects();
+                if (slot < 0 || slot >= objects.Length || objects[slot.Value] == null) throw new ArgumentException("Accessory slot " + slot + " is empty.");
+                if (!objects[slot.Value].GetComponentsInChildren<Transform>(true).Any(t => t.name == bone))
+                    throw new ArgumentException("Accessory slot " + slot + " has no bone " + bone + " (see bones_get with slot and allNames).");
+            }
+            var data = Data(character, controller, bone, true, slot) ?? throw new ArgumentException("ABMX cannot modify bone " + bone + ".");
             var type = data.GetType();
             if (values["scale"] != null) type.GetField("ScaleModifier").SetValue(data, SceneCommands.Vector(values["scale"]));
             if (values["position"] != null) type.GetField("PositionModifier").SetValue(data, SceneCommands.Vector(values["position"]));
@@ -86,8 +104,9 @@ namespace StudioMcp.Bridge
                 ["length"] = (float)type.GetField("LengthModifier").GetValue(data) };
         }
 
-        private JObject List(ChaControl character, Component controller, string filter, bool allNames)
+        private JObject List(ChaControl character, Component controller, string filter, bool allNames, int? slot)
         {
+            var wanted = Location(slot).ToString();
             var modifiers = new JArray();
             foreach (var modifier in (IEnumerable)controller.GetType().GetMethod("GetAllModifiers", Type.EmptyTypes).Invoke(controller, null))
             {
@@ -95,16 +114,27 @@ namespace StudioMcp.Bridge
                 if (!string.IsNullOrEmpty(filter) && name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
                 if ((bool)modifier.GetType().GetMethod("IsEmpty").Invoke(modifier, null)) continue;
                 var location = modifier.GetType().GetProperty("BoneLocation").GetValue(modifier, null).ToString();
-                var data = location == "BodyTop" ? Data(character, controller, name, false) : null;
+                if (slot != null && location != wanted) continue;
+                var data = location == wanted ? Data(character, controller, name, false, slot) : null;
                 var entry = new JObject { ["bone"] = name, ["location"] = location,
                     ["coordinateSpecific"] = (bool)modifier.GetType().GetMethod("IsCoordinateSpecific").Invoke(modifier, null) };
                 if (data != null) entry.Merge(Describe(data));
                 modifiers.Add(entry);
             }
-            var result = new JObject { ["sceneSession"] = _plugin.Session, ["modifiers"] = modifiers };
+            var result = new JObject { ["sceneSession"] = _plugin.Session, ["location"] = wanted, ["modifiers"] = modifiers };
             if (allNames)
-                result["boneNames"] = new JArray(((IEnumerable)controller.GetType().GetMethod("GetAllPossibleBoneNames", Type.EmptyTypes).Invoke(controller, null))
-                    .Cast<string>().Where(n => string.IsNullOrEmpty(filter) || n.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0).Take(400));
+            {
+                IEnumerable names;
+                if (slot == null) names = (IEnumerable)controller.GetType().GetMethod("GetAllPossibleBoneNames", Type.EmptyTypes).Invoke(controller, null);
+                else
+                {
+                    var objects = character.GetAccessoryObjects();
+                    if (slot < 0 || slot >= objects.Length || objects[slot.Value] == null) throw new ArgumentException("Accessory slot " + slot + " is empty.");
+                    // The accessory's own transforms, root first: the tail is usually the end of a chain.
+                    names = objects[slot.Value].GetComponentsInChildren<Transform>(true).Select(t => t.name).ToArray();
+                }
+                result["boneNames"] = new JArray(names.Cast<string>().Where(n => string.IsNullOrEmpty(filter) || n.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0).Take(400));
+            }
             return result;
         }
     }

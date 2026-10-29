@@ -31,7 +31,9 @@ namespace StudioMcp.Bridge
             internal int Slot;
             internal Renderer Renderer;
             internal Vector3[] Points, Normals;
+            internal Vector2[] Uv;
             internal int[] Triangles;
+            internal int[][] SubTriangles;
         }
 
         // World-space vertices, normals and triangles of the renderer's current (posed, shaped) mesh.
@@ -59,8 +61,10 @@ namespace StudioMcp.Bridge
             {
                 var vertices = mesh.vertices;
                 var normals = mesh.normals;
+                // BakeMesh copies UVs and submeshes too, so this works even when the source mesh is not CPU-readable.
                 var surface = new Surface { Renderer = renderer, Name = renderer.name, Points = new Vector3[vertices.Length],
-                    Normals = new Vector3[vertices.Length], Triangles = mesh.triangles };
+                    Normals = new Vector3[vertices.Length], Triangles = mesh.triangles, Uv = mesh.uv,
+                    SubTriangles = Enumerable.Range(0, mesh.subMeshCount).Select(s => mesh.GetTopology(s) == MeshTopology.Triangles ? mesh.GetTriangles(s) : new int[0]).ToArray() };
                 for (var i = 0; i < vertices.Length; i++)
                 {
                     surface.Points[i] = matrix.MultiplyPoint3x4(vertices[i]);

@@ -72,14 +72,32 @@ public static class StudioTools
         float? damping = null, float? elasticity = null, float? stiffness = null, float? inertia = null, float? radius = null, float? weight = null)
         => bridge.Call("chara.dynamic_bone_set", Args(new { sceneSession, objectId, slot, index, damping, elasticity, stiffness, inertia, radius, weight }));
 
-    [McpServerTool, Description("Read ABMX body bone modifiers (scale, position, rotation, length); filter by bone name, allNames lists modifiable bones. Head/neck scaling often explains misaligned hair.")]
-    public static Task<JsonObject> BonesGet(BridgeClient bridge, int objectId = 0, string? filter = null, bool allNames = false)
-        => bridge.Call("chara.bones_get", Args(new { objectId, filter, allNames }));
+    [McpServerTool, Description("Read ABMX bone modifiers (scale, position, rotation, length) on the body, or on an accessory's own bones with slot; filter by bone name, allNames lists modifiable bones (for a slot: its transforms, root first). Head/neck scaling often explains misaligned hair.")]
+    public static Task<JsonObject> BonesGet(BridgeClient bridge, int objectId = 0, string? filter = null, bool allNames = false, int? slot = null)
+        => bridge.Call("chara.bones_get", Args(new { objectId, filter, allNames, slot }));
 
-    [McpServerTool, Description("Set an ABMX body bone modifier (scale/position/rotation as xyz, length); saved with the card. Usable in batch_apply as chara.bones_set for undo.")]
-    public static Task<JsonObject> BonesSet(BridgeClient bridge, string sceneSession, string bone, int objectId = 0,
+    [McpServerTool, Description("Set an ABMX bone modifier (scale/position/rotation as xyz, length) on the body, or on an accessory bone with slot, e.g. scale the last bones of a hair tail to shorten it instead of masking. Saved with the card. Usable in batch_apply as chara.bones_set for undo.")]
+    public static Task<JsonObject> BonesSet(BridgeClient bridge, string sceneSession, string bone, int objectId = 0, int? slot = null,
         float[]? scale = null, float[]? position = null, float[]? rotation = null, float? length = null)
-        => bridge.Call("chara.bones_set", Args(new { sceneSession, objectId, bone, scale, position, rotation, length }));
+        => bridge.Call("chara.bones_set", Args(new { sceneSession, objectId, slot, bone, scale, position, rotation, length }));
+
+    [McpServerTool, Description("Preview an alpha mask for one hair accessory (slot) without changing anything: picks triangles by mode inside (buried in the body/clothes, marginMm, accessorySlots for accessory garments), below (world height) or region (center, radius), rasterizes them in UV space (grow px), and reports per material the cut %, texture pixels shared with kept geometry (protectShared keeps them), an alpha-clip hint, an overlay PNG (red cut, yellow shared) and 3D markers for capture_turntable. Returns a previewId for hair_mask_apply.")]
+    public static async Task<CallToolResult> HairMaskPreview(BridgeClient bridge, int slot, int objectId = 0, string mode = "inside",
+        float? height = null, float[]? center = null, float? radius = null, float marginMm = 2, int[]? accessorySlots = null,
+        bool includeClothes = true, int grow = 2, bool protectShared = true, int? rendererId = null)
+    {
+        var response = await bridge.Call("analysis.hair_mask", Args(new { objectId, slot, mode, height, center, radius, marginMm, accessorySlots,
+            includeClothes, grow, protectShared, rendererId }));
+        var result = response["result"]!.AsObject();
+        var content = new List<ContentBlock> { new TextContentBlock { Text = response.ToJsonString() } };
+        var overlay = result["overlayPath"]?.GetValue<string>();
+        if (overlay != null && File.Exists(overlay)) content.Add(ImageContentBlock.FromBytes(await File.ReadAllBytesAsync(overlay), "image/png"));
+        return new CallToolResult { Content = content };
+    }
+
+    [McpServerTool, Description("Apply a hair_mask_preview: bakes the mask into each material's _MainTex alpha and imports it through Material Editor (saved with the card). Only visible on shaders that clip or blend by alpha; verify with capture_turntable. Undo with material_reset (kind texture, property _MainTex) per rendererId.")]
+    public static Task<JsonObject> HairMaskApply(BridgeClient bridge, string sceneSession, string previewId)
+        => bridge.Call("mask.apply", Args(new { sceneSession, previewId }));
 
     [McpServerTool, Description("Capture several views around a character in one call and tile them into one contact sheet (default 8 yaws, 0 = front). target full or head; markers are world points drawn as red dots visible through hair (e.g. hair_check markers). The camera is restored afterwards.")]
     public static async Task<CallToolResult> CaptureTurntable(BridgeClient bridge, string sceneSession, int objectId = 0,

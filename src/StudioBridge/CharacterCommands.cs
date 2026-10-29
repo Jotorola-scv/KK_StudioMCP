@@ -321,6 +321,14 @@ namespace StudioMcp.Bridge
         // GPU blit, so textures that are not CPU-readable (most game textures) can still be saved.
         private static byte[] Png(Texture texture)
         {
+            var readable = Readable(texture);
+            try { return readable.EncodeToPNG(); }
+            finally { UnityEngine.Object.Destroy(readable); }
+        }
+
+        // A CPU-readable RGBA copy of any texture; the caller destroys it.
+        internal static Texture2D Readable(Texture texture)
+        {
             var previous = RenderTexture.active;
             var target = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
             Texture2D readable = null;
@@ -331,7 +339,9 @@ namespace StudioMcp.Bridge
                 readable = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
                 readable.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
                 readable.Apply(false, false);
-                return readable.EncodeToPNG();
+                var result = readable;
+                readable = null;
+                return result;
             }
             finally
             {
