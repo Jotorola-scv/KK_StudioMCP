@@ -1,6 +1,6 @@
-# StudioMCP Maker 版（Koikatsu Sunshine）
+# StudioMCP Maker 版（Koikatsu Sunshine／Koikatsu）
 
-讓 Claude、Codex 等 AI agent 直接操作 **Koikatsu Sunshine 的 Studio 與本體角色 Maker**：查看並修改角色材質、
+讓 Claude、Codex 等 AI agent 直接操作 **Koikatsu Sunshine（KKS）與 Koikatsu（KK）的 Studio 與本體角色 Maker**：查看並修改角色材質、
 shader、貼圖、服裝穿脫、身型滑桿，截圖比較，以及把角色網格匯出到 Blender 檢查服裝穿模。
 特別適合**移植模型／服裝**時即時檢查問題。
 
@@ -9,24 +9,30 @@ shader、貼圖、服裝穿脫、身型滑桿，截圖比較，以及把角色�
 
 ## 懶人安裝（3 步）
 
-1. 到 [Releases](https://github.com/Jotorola-scv/KK_StudioMCP/releases) 下載 `StudioMCP-Maker-KKS-*.zip`，解壓到任何地方（解壓到遊戲資料夾裡最省事）。
+1. 到 [Releases](https://github.com/Jotorola-scv/KK_StudioMCP/releases) 下載對應遊戲的安裝包：KKS 用 `StudioMCP-Maker-KKS-*.zip`，KK 用 `StudioMCP-Maker-KK-*.zip`。解壓到任何地方（解壓到遊戲資料夾裡最省事）。
 2. 雙擊 **`Install.bat`**。如果找不到遊戲，把遊戲資料夾（有 `CharaStudio.exe` 的那個）拖進視窗按 Enter。
 3. 重新啟動遊戲和 AI 工具。
 
 安裝程式會自動完成：
 
 - 放入遊戲外掛 `BepInEx/plugins/StudioMCP`，被取代的舊檔案會備份。
-- 放入 MCP 伺服器 `StudioMCP-Host/StudioMcp.Host.exe`（**不需要安裝 .NET**）。
+- 放入 MCP 伺服器 `StudioMCP-Host/`，由微軟簽章的 `dotnet.exe` 執行。需要 **.NET 8 Runtime**，沒有的話 `Install.bat` 會自動用 winget 安裝微軟官方版本。
 - 開啟寫入權限（只要唯讀：用命令列執行 `Install.bat --read-only`）。
 - 註冊兩個 MCP 伺服器到電腦上已安裝的 **Claude Code、Claude Desktop、Codex**，並先備份原設定檔：
-  - `studiomcp`：給 Studio 用
-  - `kksmaker`：給本體 Maker 用
+
+  | | KKS | KK |
+  |---|---|---|
+  | Studio | `studiomcp`（埠 8846） | `kkstudiomcp`（埠 8847） |
+  | 本體 Maker | `kksmaker`（埠 8848） | `kkmaker`（埠 8849） |
 - 其他 MCP 工具可參考 `StudioMCP-Host/mcp-config-example.json` 手動設定。
 
 移除：雙擊 `Uninstall.bat`（截圖、存檔點與備份會保留在 `UserData/StudioMCP`）。
 
-**需求**：KKS + BepInEx + KKSAPI（HF Patch 已內含）。材質功能需要 Material Editor，截圖需要 Screencap。
-Studio 和本體可以同時開，兩邊各用各的連線（預設埠 8846／8848）。
+**需求**：KKS 或 KK + BepInEx + Modding API（KKSAPI／KKAPI，HF Patch 已內含）。材質功能需要 Material Editor，截圖需要 Screencap。
+KK 與 KKS、Studio 與本體都可以同時開，各自使用不同的埠與 MCP 名稱，互不干擾。
+
+**防毒軟體**：安裝包不含任何自製的 exe，只有 BepInEx 外掛 DLL、由 `dotnet.exe` 執行的 MCP 伺服器 DLL 和兩個 bat 檔，
+避免被防毒的啟發式掃描誤擋。若仍被攔截，請把遊戲資料夾裡的 `StudioMCP-Host` 加入防毒信任清單。
 
 ## 能做什麼
 
@@ -59,7 +65,8 @@ Studio 和本體可以同時開，兩邊各用各的連線（預設埠 8846／88
 | `maker_snapshot` | 角色名稱、目前服裝套數、服裝 9 格／頭髮／飾品的清單 ID 與名稱、穿脫狀態、鏡頭，以及寫入用的 `sceneSession` |
 | `maker_set_clothes_state` | 切換部位：0 穿著、1 半脫、2 半脫 2、3 脫掉（暫時狀態，不存卡），用來檢查半脫穿模 |
 
-`shape_set` 會同步更新 Maker 的滑桿畫面。
+`shape_set` 會同步更新 Maker 的滑桿畫面。有安裝 Pushup 外掛時，胸部相關滑桿（4–13）會一併寫入 Pushup 的原始值，
+不會在換裝或切換穿脫後被還原；`shape_get` 的 `value` 是卡片存的滑桿值，`displayed` 是穿著胸罩／上衣時 Pushup 實際套用的值。
 
 ### Studio 專用
 
@@ -81,18 +88,20 @@ Studio 和本體可以同時開，兩邊各用各的連線（預設埠 8846／88
 - 載入別的角色或服裝後，`sceneSession` 會更新，網格 ID 也會失效，需要重新查詢。剛進 Maker 時可能短暫回傳 `Maker character is still loading`，重試即可。
 - 不會更換服裝品項、改 Maker 內建的顏色或花紋、新增飾品；只修改材質層與身型。
 - `mesh_export` 匯出的是世界座標（OBJ 的 x 軸已鏡像成右手座標；Blender 用預設 forward -Z、up Y 匯入）。CPU 無法讀取的靜態網格會被略過，並列出原因。
-- 目前只在 KKS 實測，KK 尚未驗證。
+- KKS 與 KK 都已實測（KK 為 Unity 5.6／.NET 3.5 版本，功能相同）。
+- 同一台電腦有多個 KK（或多個 KKS）安裝時，MCP 名稱相同，最後執行安裝的那一個會生效。
 
 ## 從原始碼建置
 
 ```powershell
-# 產生 Release 安裝包（含自帶 runtime 的 host 與 Install.bat）
-./tools/package-maker.ps1 -GameRoot '<KKS 安裝路徑>'
+# 產生 Release 安裝包（bridge、host 與 Install.bat）
+./tools/package-maker.ps1 -GameRoot '<KKS 安裝路徑>' -Game KKS
+./tools/package-maker.ps1 -GameRoot '<KK 安裝路徑>' -Game KK
 # 或只建置 bridge
 dotnet build src/StudioBridge/StudioBridge.csproj -c Release -p:Game=KKS -p:GameRoot='<KKS 安裝路徑>'
 ```
 
-需要 .NET 8 SDK。bridge 在遊戲內使用 Mono（.NET Framework 4.6），host 是獨立的 .NET 8 程式。
+需要 .NET 8 SDK。bridge 在遊戲內使用 Mono（KKS 為 .NET Framework 4.6，KK 為 .NET 3.5），host 是獨立的 .NET 8 程式。
 
 ## 相對原專案的修改
 
@@ -100,7 +109,8 @@ dotnet build src/StudioBridge/StudioBridge.csproj -c Release -p:Game=KKS -p:Game
 - **新工具**：`maker_snapshot`、`maker_set_clothes_state`、`shape_get`、`shape_set`（可批次復原）、`mesh_export`。
 - **修正材質被複製的問題**：原版讀取 `renderer.materials`，每次呼叫都會複製所有材質，讓遊戲持有的原材質失效；改為 `sharedMaterials`（與 Material Editor 一致）。
 - **錯誤訊息**：host 會把遊戲端的實際錯誤原因傳給 agent，原版只顯示「An error occurred invoking」。
-- **懶人安裝**：自帶 runtime 的單一 exe host，內建 `install`／`uninstall`，自動註冊到 Claude Code、Claude Desktop、Codex。
+- **懶人安裝**：host 內建 `install`／`uninstall`，`Install.bat` 自動準備 .NET 8 Runtime、安裝外掛並註冊到 Claude Code、Claude Desktop、Codex；KK 與 KKS 各有安裝包。
+- **Pushup 相容**：胸部滑桿同步寫入 Pushup 的原始值，換裝後不會被還原。
 
 ## 授權與致謝
 
@@ -113,15 +123,16 @@ dotnet build src/StudioBridge/StudioBridge.csproj -c Release -p:Game=KKS -p:Game
 ## English summary
 
 A fork of [tomTom1010-IEE/KK_StudioMCP](https://github.com/tomTom1010-IEE/KK_StudioMCP) that lets AI agents work in
-**both Koikatsu Sunshine Studio and the main-game character maker**: inspect and edit Material Editor materials,
+**both Studio and the main-game character maker of Koikatsu Sunshine (KKS) and Koikatsu (KK)**: inspect and edit Material Editor materials,
 shaders and textures, toggle clothing states, drive body/face shape sliders, capture renders, and export the
 character's baked meshes (OBJ + MTL + textures) to check clothing fit in Blender — handy when porting outfits.
 
-- **Install**: download the release zip, double-click `Install.bat`, restart the game and your AI client. The host is a
-  self-contained exe (no .NET needed). The installer copies the bridge, enables writes (`--read-only` to skip) and
-  registers `studiomcp` (Studio) and `kksmaker` (maker) with Claude Code, Claude Desktop and Codex, backing up configs.
+- **Install**: download the KKS or KK release zip, double-click `Install.bat`, restart the game and your AI client.
+  The host runs under Microsoft's signed `dotnet.exe` (Install.bat installs the .NET 8 Runtime via winget if missing; no
+  custom exe, so antivirus heuristics stay quiet). It copies the bridge, enables writes (`--read-only` to skip) and
+  registers `studiomcp`/`kksmaker` (KKS) or `kkstudiomcp`/`kkmaker` (KK) with Claude Code, Claude Desktop and Codex.
 - **New tools**: `maker_snapshot`, `maker_set_clothes_state`, `shape_get`, `shape_set`, `mesh_export`; all
   `material_*`, `camera_*`, `capture` and `batch_*` tools also work in the maker (`objectId: 0`).
 - **Fixes**: the bridge reads `sharedMaterials` instead of cloning every material on each call; the host forwards
-  the bridge's error text.
-- Tested on KKS only. AGPL-3.0, like upstream.
+  the bridge's error text; bust sliders are mirrored into Pushup's base data so clothing changes don't revert them.
+- Tested on KKS and KK. AGPL-3.0, like upstream.

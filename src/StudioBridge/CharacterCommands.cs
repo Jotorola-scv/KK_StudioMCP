@@ -26,6 +26,11 @@ namespace StudioMcp.Bridge
             "knee_thickness", "calves", "ankle_width", "ankle_thickness", "shoulder_width", "shoulder_thickness",
             "upper_arm_width", "upper_arm_thickness", "elbow_width", "elbow_thickness", "forearm" };
         private static readonly string[] Scopes = { "Character", "Clothing", "Hair", "Accessory" };
+        // Pushup (KK_Plugins) keeps the unpushed bust sliders 4-13 in PushupController.BaseData and re-applies them on
+        // every clothing change, so bust edits must go there too or the next clothes change silently reverts them.
+        private static readonly string[] PushupFields = { "Size", "VerticalPosition", "HorizontalAngle", "HorizontalPosition",
+            "VerticalAngle", "Depth", "Roundness", "AreolaDepth", "NippleWidth", "NippleDepth" };
+        private const int PushupFirst = 4;
         // Shadow proxies, selection highlights, silhouettes and the maker height bar are not part of the visible model.
         private static readonly string[] HelperShaders = { "Bonelyfans", "Shader Forge/shadowcast", "Custom/Silhouette", "Shader Forge/FlatColorTransparent" };
         private readonly Plugin _plugin;
@@ -44,6 +49,7 @@ namespace StudioMcp.Bridge
                     foreach (var change in changes)
                         if (face) character.SetShapeFaceValue(change.Key, change.Value);
                         else character.SetShapeBodyValue(change.Key, change.Value);
+                    if (!face) SyncPushup(character, changes);
                     // The maker sliders cache their values; ask the maker to re-read them from the character.
                     if (!Plugin.InStudio && MakerAPI.InsideAndLoaded)
                     {
@@ -65,7 +71,7 @@ namespace StudioMcp.Bridge
             var character = Character((int?)args["objectId"] ?? 0);
             var face = Part(args) == "face";
             var saved = Changes(character, face, args["values"]).Keys.ToDictionary(i => i,
-                i => face ? character.fileFace.shapeValueFace[i] : character.fileBody.shapeValueBody[i]);
+                i => face ? character.fileFace.shapeValueFace[i] : BodyValue(character, i));
             return () => {
                 if (character == null) throw new InvalidOperationException("Undo character was destroyed.");
                 var values = new JObject();
@@ -94,10 +100,45 @@ namespace StudioMcp.Bridge
             var face = part == "face";
             var values = face ? character.fileFace.shapeValueFace : character.fileBody.shapeValueBody;
             var names = face ? ChaFileDefine.cf_headshapename : ChaFileDefine.cf_bodyshapename;
-            return new JObject { ["part"] = part, ["sceneSession"] = Plugin.Instance.Session,
-                ["shapes"] = new JArray(values.Select((value, i) => new JObject { ["index"] = i,
-                    ["key"] = !face && i < BodyKeys.Length ? BodyKeys[i] : null,
-                    ["name"] = i < names.Length ? names[i] : null, ["value"] = value })) };
+            var shapes = new JArray();
+            for (var i = 0; i < values.Length; i++)
+            {
+                var value = face ? values[i] : BodyValue(character, i);
+                var entry = new JObject { ["index"] = i, ["key"] = !face && i < BodyKeys.Length ? BodyKeys[i] : null,
+                    ["name"] = i < names.Length ? names[i] : null, ["value"] = value };
+                // With Pushup, worn bras/tops reshape the bust; "value" is the card's slider, "displayed" what is rendered.
+                if (Math.Abs(values[i] - value) > 1e-4f) entry["displayed"] = values[i];
+                shapes.Add(entry);
+            }
+            return new JObject { ["part"] = part, ["sceneSession"] = Plugin.Instance.Session, ["shapes"] = shapes };
+        }
+
+        private static Component PushupController(ChaControl character, out Type type)
+        {
+            type = MaterialCommands.FindType("KK_Plugins.Pushup+PushupController");
+            return type == null ? null : character.GetComponent(type);
+        }
+
+        private static float BodyValue(ChaControl character, int index)
+        {
+            Type type = null;
+            var controller = index >= PushupFirst && index < PushupFirst + PushupFields.Length ? PushupController(character, out type) : null;
+            if (controller == null) return character.fileBody.shapeValueBody[index];
+            var data = type.GetField("BaseData").GetValue(controller);
+            return (float)data.GetType().GetProperty(PushupFields[index - PushupFirst]).GetValue(data, null);
+        }
+
+        private static void SyncPushup(ChaControl character, Dictionary<int, float> changes)
+        {
+            Type type;
+            var controller = PushupController(character, out type);
+            var bust = changes.Where(c => c.Key >= PushupFirst && c.Key < PushupFirst + PushupFields.Length).ToList();
+            if (controller == null || bust.Count == 0) return;
+            var data = type.GetField("BaseData").GetValue(controller);
+            foreach (var change in bust)
+                data.GetType().GetProperty(PushupFields[change.Key - PushupFirst]).SetValue(data, change.Value, null);
+            // Re-applies the worn bra/top push on top of the new base values, exactly as Pushup does after a clothes change.
+            type.GetMethod("RecalculateBody").Invoke(controller, new object[] { true, false });
         }
 
         // Accepts {"<index>|<english key>|<game name>": value}; validates everything before anything is applied.
@@ -132,7 +173,7 @@ namespace StudioMcp.Bridge
             var includeInactive = (bool?)args["includeInactive"] ?? false;
             var textures = (bool?)args["textures"] ?? true;
             var includeHelpers = (bool?)args["includeHelpers"] ?? false;
-            var name = string.Concat(((string)args["name"] ?? "character").Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_'));
+            var name = Clean((string)args["name"] ?? "character").Trim('_');
             if (name.Length == 0) name = "character";
             var folder = Path.Combine(Path.Combine(_plugin.OutputRoot, "exports"), DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + name);
             Directory.CreateDirectory(folder);
@@ -289,6 +330,7 @@ namespace StudioMcp.Bridge
         }
 
         private static string F(float value) => value.ToString("0.######", CultureInfo.InvariantCulture);
-        private static string Clean(string value) => string.Concat(value.Select(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '_'));
+        // .NET 3.5 (KK) has no string.Concat(IEnumerable<char>), so build the string explicitly.
+        private static string Clean(string value) => new string(value.Select(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '_').ToArray());
     }
 }
