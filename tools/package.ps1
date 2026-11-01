@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$KksGameRoot,
     [Parameter(Mandatory=$true)][string]$KkGameRoot,
-    [string]$OutputDirectory = '.local/releases/0.1.0-rc1'
+    [string]$OutputDirectory
 )
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -12,7 +12,11 @@ if (@(& git -C $root status --porcelain).Count) { throw 'Freeze and commit the c
 $revision = (& git -C $root rev-parse HEAD).Trim()
 [xml]$props = Get-Content -Raw -LiteralPath (Join-Path $root 'Directory.Build.props')
 $version = [string]$props.Project.PropertyGroup[0].Version
+$assemblyVersion = [string]$props.Project.PropertyGroup[0].AssemblyVersion
 if ($version -notmatch '^\d+\.\d+\.\d+-rc\d+$') { throw 'This recipe packages explicit RC versions only.' }
+if (-not $OutputDirectory) { $OutputDirectory = '.local/releases/' + $version }
+$releaseNotes = Join-Path $root ('docs/ReleaseNotes-' + $version + '.md')
+if (-not (Test-Path -LiteralPath $releaseNotes)) { throw 'Missing release notes for this version.' }
 $output = [IO.Path]::GetFullPath((Join-Path $root $OutputDirectory))
 $allowed = @('.local','artifacts') | Where-Object {
     $parent = [IO.Path]::GetFullPath((Join-Path $root $_)) + [IO.Path]::DirectorySeparatorChar
@@ -82,7 +86,8 @@ foreach ($component in @('Host','KKS','KK')) {
     Copy-Item -LiteralPath (Join-Path $root 'licenses') -Destination (Join-Path $directory 'licenses') -Recurse
     Copy-Item -LiteralPath (Join-Path $root 'docs/Installation.md') -Destination (Join-Path $directory 'INSTALL.md')
     Copy-Item -LiteralPath (Join-Path $root 'docs/RC1-Acceptance.md') -Destination (Join-Path $directory 'ACCEPTANCE.md')
-    Copy-Item -LiteralPath (Join-Path $root 'docs/ReleaseNotes-0.1.0-rc1.md') -Destination (Join-Path $directory 'RELEASE-NOTES.md')
+    Copy-Item -LiteralPath $releaseNotes -Destination (Join-Path $directory 'RELEASE-NOTES.md')
+    Copy-Item -LiteralPath (Join-Path $root 'docs/Character-Animation.md') -Destination (Join-Path $directory 'CHARACTER-ANIMATION.md')
     Copy-Item -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Destination (Join-Path $directory 'THIRD-PARTY-NOTICES.md')
     $nugetFile = Join-Path $root 'src/StudioBridge/obj/project.assets.json'
     if ($component -eq 'Host') {
@@ -98,7 +103,7 @@ foreach ($component in @('Host','KKS','KK')) {
         foreach ($name in @(($component+'_StudioMCP.dll'),'Newtonsoft.Json.dll','websocket-sharp.dll')) {
             Copy-Item -LiteralPath (Join-Path (Join-Path $build $component) $name) -Destination (Join-Path $pluginDirectory $name)
         }
-        if ([Reflection.AssemblyName]::GetAssemblyName((Join-Path $pluginDirectory ($component+'_StudioMCP.dll'))).Version.ToString() -ne '0.1.0.0') {
+        if ([Reflection.AssemblyName]::GetAssemblyName((Join-Path $pluginDirectory ($component+'_StudioMCP.dll'))).Version.ToString() -ne $assemblyVersion) {
             throw 'Unexpected bridge assembly version.'
         }
     }
@@ -115,7 +120,7 @@ foreach ($component in @('Host','KKS','KK')) {
     }
     WriteJson (Join-Path $directory 'PACKAGE-MANIFEST.json') ([ordered]@{
         schemaVersion=1;product='StudioMCP';version=$version;component=$component;sourceCommit=$revision;
-        repository='https://github.com/tomTom1010-IEE/KK_StudioMCP';runtimeAcceptance='Pending maintainer RC1 acceptance; not a stable release';files=$files
+        repository='https://github.com/tomTom1010-IEE/KK_StudioMCP';runtimeAcceptance='KKS character/animation live checks passed; new KK features build-only; pre-release';files=$files
     })
     $zip = Join-Path $assets ([IO.Path]::GetFileName($directory)+'.zip')
     Compress-Archive -Path (Join-Path $directory '*') -DestinationPath $zip -CompressionLevel Optimal

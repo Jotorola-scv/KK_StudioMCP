@@ -1,17 +1,18 @@
-# StudioMCP 0.1.0 RC1 Installation
+# StudioMCP 0.2.0 RC1 Installation
 
-This is a public release, not a rendering-plugin bundle. Keep your game, mod stack and current
+This is a public release candidate, not a rendering-plugin bundle. Keep your game, mod stack and current
 scenes backed up. No installer or test runs automatically.
 
 ## Choose Downloads
 
-- `StudioMCP-0.1.0-rc1-Host.zip`: complete framework-dependent .NET 8 host, dependencies and the
+- `StudioMCP-0.2.0-rc1-Host.zip`: complete framework-dependent .NET 8 host, dependencies and the
   optional portable authoring skill. Tested on Windows; run the DLL through `dotnet`, not BepInEx.
-- `StudioMCP-0.1.0-rc1-KKS.zip`: KKS game bridge and its two managed dependencies, in game-relative
+- `StudioMCP-0.2.0-rc1-KKS.zip`: KKS game bridge and its two managed dependencies, in game-relative
   folders. The bridge targets .NET Framework 4.6 / KKS Mono.
-- `StudioMCP-0.1.0-rc1-KK.zip`: KK compatibility build, targeting .NET Framework 3.5 / legacy Mono.
+- `StudioMCP-0.2.0-rc1-KK.zip`: KK compatibility build, targeting .NET Framework 3.5 / legacy Mono.
   Newer KKS authoring features have not all been requalified on KK; optional DOF/snapshot controls
   deliberately return unavailable there. Do not interpret a successful build as full KK acceptance.
+  The new character/animation tools passed KKS live checks; they are build-verified only on KK.
 - Verify all archives against the release's `SHA256SUMS.txt`. Each ZIP also contains a per-file
   `PACKAGE-MANIFEST.json` with exact source revision and payload hashes. Matching source is available
   at the same repository tag.
@@ -28,6 +29,10 @@ The game needs its matching BepInEx 5, KKAPI/KKSAPI and ExtendedSave installatio
 for material tools; Screencap for color capture. Paired depth needs the compatible OfflineReShade
 export API. Optional Tom Scene Effects, BSDF scene-buffer and Probe providers are separate products,
 not dependencies that this package installs. Their absence must remain a supported fallback.
+
+Native FK/IK uses Studio's own interfaces. Fine bones and blendshapes require the matching
+KKPE/KKSPE plugin; animation editing requires Timeline. These optional providers are not bundled.
+KKS character/animation checks used KKPE 2.21.4 and Timeline 1.5.4.
 
 Blender and Unity Editor/Codex Bridge are authoring tools, not runtime requirements for StudioMCP.
 
@@ -58,6 +63,8 @@ Blender and Unity Editor/Codex Bridge are authoring tools, not runtime requireme
 ```
 
 Client configuration formats differ. Merge reviewed settings; do not overwrite unrelated entries.
+When upgrading from 0.1.0 RC1, update both the host and bridge and restart/refresh the MCP client
+so it discovers all 60 tools. See `CHARACTER-ANIMATION.md` for posing, bindings and keyframe edits.
 First call `studio_status` and `scene_snapshot`. The listener is authenticated loopback, default
 read-only. Enable writes explicitly only when needed through `Server.AllowWrites` in the bridge's
 BepInEx config or a documented process-scoped override. Old scene sessions/handles cannot be reused.
@@ -89,7 +96,7 @@ $paths = @{
     OutputDirectory = '.local/releases/rc1-new-candidate'
 }
 ./tools/package.ps1 @paths
-python ./tools/audit_packages.py --assets .local/releases/rc1-new-candidate/assets --commit <full-source-commit>
+python ./tools/audit_packages.py --assets .local/releases/rc1-new-candidate/assets --commit <full-source-commit> --version 0.2.0-rc1
 ```
 
 The recipe requires committed dependency locks, builds edition-isolated outputs and creates a new

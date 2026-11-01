@@ -1,4 +1,4 @@
-# RC1 Maintainer Acceptance Checklist
+# RC Maintainer Acceptance Checklist
 
 Use a disposable Studio scene and the downloaded RC archives, not a development bin directory.
 This checklist grants no permission to overwrite user scenes, restart unrelated processes or alter
@@ -43,11 +43,24 @@ rendering-provider DLLs. Keep raw protocol responses, images and connection data
   readback is blocked. Readback limits reject excessive/unresolved buffers rather than reallocating.
 - On KK, DOF and BSDF snapshot controls remain unavailable; validate only the common supported path.
 
+## Character Posing And Timeline
+
+- Import a copy of an owned card. Inspect native FK/IK groups and controls, change supported
+  channels, and check mode exclusion and saved guide values. Reacquire handles after a scene load.
+- With KKPE installed, edit and reset fine bone position/rotation/scale and named blendshapes.
+  Distinguish actual values from provider overrides/originals; another solver may move a joint.
+- With Timeline installed, pause before editing. Exercise native root, FK/IK, KKPE bone and shape
+  tracks; check interpolation, explicit key replacement, curves, playback and deletion.
+- Save a new scene PNG, reload, wait for native Timeline restoration, reacquire handles and seek
+  again. Confirm provider-owned tracks and overrides survive, including a step curve.
+- Verify missing optional providers return unavailable or a clear error while common tools work.
+  KKS acceptance does not qualify the new tools on KK or with another provider version.
+
 ## Record The Result
 
 Record exact archive/source hashes, game/API/ME/Screencap versions, accepted tools and remaining
 failures. Public release notes may summarize results but must not include connection descriptors,
-raw logs, proprietary binaries or user cards. Offline fixtures and 40-tool discovery do not replace
+raw logs, proprietary binaries or user cards. Offline fixtures and 60-tool discovery do not replace
 this live acceptance. Until it passes, keep this release explicitly pre-release.
 
 The optional extended live verifier needs Python and Pillow, and explicit paths:

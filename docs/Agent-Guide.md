@@ -9,6 +9,8 @@ not a rendering engine and not an authority on every installed shader's mathemat
   separate [scene-pipeline setup package](https://github.com/tomTom1010-IEE/TomBSDF/releases/tag/scene-pipeline-setup-20261027).
   That package is optional; this guide and the authoring skill are usable without installing it.
 - For scene/material editing, read the current tool schemas and the workflow below.
+- For FK/IK, fine bones, blendshapes or Timeline authoring, read [Character Animation](Character-Animation.md).
+  Inspect native groups and current handles; do not infer a Timeline binding from the active UI selection.
 - For shader meaning, route through [Shader RenderDocs](../skills/studiomcp-shader-authoring/references/shader-renderdocs.md).
 - For source or binary publication, use [Release Readiness](Release-Readiness.md). Do not run live
   verification scripts as part of a read-only documentation or source audit.

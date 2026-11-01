@@ -12,6 +12,9 @@ because it must wait for the end of a rendered frame; the MCP capture tool waits
 | Lights | `catalog_search`, `add_light`, `light_set`. Native Studio light color, intensity, range, cone, enabled/shadow state, plus explicit culling mask and render mode. |
 | ME | `materials_list`, `material_inspect`, `material_set_shader`, `material_set`, `material_reset`, `material_import_texture`, `material_set_render_queue`. Shader/Float/Color/render-queue edits and PNG/JPEG import use installed ME public persistence APIs. |
 | Character scope | Body/head, hair, clothing and accessories; part slots are resolved from the actual renderer hierarchy. KKAPI includes MoreAccessories slots. |
+| Native character posing | `character_state`, `character_controls`, `character_kinematics_set`, `character_control_set`. Original Studio FK/IK modes, groups and saved GuideObject channels. |
+| KKPE fine edits | `pose_bones`, `pose_bone_set`, `pose_bone_reset`, `pose_blendshapes`, `pose_blendshape_set`, `pose_blendshape_reset`. Optional provider-owned bone and shape overrides, originals and persistence. |
+| Timeline | `timeline_get`, `timeline_control`, `timeline_settings`, `timeline_tracks`, `timeline_track_create`, `timeline_track_set`, `timeline_track_remove`, `timeline_keyframes`, `timeline_keyframe_set`, `timeline_keyframe_remove`. Optional native object/FK/IK and KKPE bone/blendshape tracks and keys. |
 | Native rendering | `render_get`, `render_set`, `render_diagnostics`. Ambient mode and sky/equator/ground colors, fog, shadow distance/cascades, MSAA, pixel-light count, realtime probes, camera clear settings and camera far clip (10-20000; restored on loading a scene without it). Diagnostics report camera depth/HDR, light layers and live TomProbe capture state. |
 | Native Studio effects | `native_effects_get`, `native_effects_set`. Original SceneInfo AO, bloom, fog, DOF, vignette, sun shafts, color-effect blend and character-light intensity. No external post stack is installed or controlled. |
 | Sky | `native_sky_get`, `native_sky_set` select original KKS presets. `skybox_bind` binds an inspected item's native Skybox material and stores the item/renderer reference in the scene PNG. |
@@ -40,7 +43,10 @@ because it must wait for the end of a rendered frame; the MCP capture tool waits
   import preserves the destination environment while mapping imported light overrides to new IDs.
   Arbitrary Graphics/IBL/post-processing plugin settings are not exposed; those plugins can still
   override native settings later. This is not an ongoing override loop.
-- Bones/poses, object deletion and scene import/merge are not MCP tools yet.
+- See [Character Animation](Character-Animation.md) for native FK/IK, KKPE and Timeline contracts.
+  KKPE/Timeline remain optional. Their edits are outside reversible batches; use checkpoints.
+  Other providers' Timeline models are inspectable but not editable through this version.
+- Object deletion and scene import/merge are not MCP tools yet.
 - Undo restores ME's saved override or removes a newly created override. It does not snapshot arbitrary
   third-party plugin state. Perform undo before additional manual edits. Rollback errors are reported.
 - Native scene PNGs remain loadable through Studio normally. New bridge-authored cards embed their

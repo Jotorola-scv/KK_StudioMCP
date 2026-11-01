@@ -15,7 +15,7 @@ using WebSocketSharp.Server;
 
 namespace StudioMcp.Bridge
 {
-    [BepInPlugin("com.tomtom.studiomcp", "Studio MCP Bridge", "0.1.0")]
+    [BepInPlugin("com.tomtom.studiomcp", "Studio MCP Bridge", "0.2.0")]
     [BepInProcess("CharaStudio.exe")]
 #if KK
     [BepInProcess("Koikatu.exe")]
@@ -23,6 +23,8 @@ namespace StudioMcp.Bridge
 #else
     [BepInProcess("KoikatsuSunshine.exe")]
 #endif
+    [BepInDependency(PluginAccess.PoseEditorId, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(PluginAccess.TimelineId, BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
         internal static Plugin Instance;
@@ -63,6 +65,9 @@ namespace StudioMcp.Bridge
 #else
         internal const string Game = "KKS";
 #endif
+        internal KinematicCommands Kinematics;
+        internal PoseEditorCommands PoseEditor;
+        internal TimelineCommands Timeline;
         internal string Session = Guid.NewGuid().ToString("N");
         internal string OutputRoot;
         internal bool WritesEnabled => _allowWrites.Value
@@ -107,6 +112,9 @@ namespace StudioMcp.Bridge
             UnityEngine.SceneManagement.SceneManager.sceneLoaded += (scene, mode) => { if (scene.name == "Title") SeenTitle = true; };
             if (InStudio) StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
             Batches = new BatchCommands(this);
+            Kinematics = new KinematicCommands(this);
+            PoseEditor = new PoseEditorCommands(this);
+            Timeline = new TimelineCommands(this);
             _originalBackground = Application.runInBackground;
             Application.runInBackground = true;
             if (InStudio) StudioSaveLoadApi.SceneLoad += SceneLoaded;
@@ -222,20 +230,29 @@ namespace StudioMcp.Bridge
                 ["plugins"] = new JArray(Chainloader.PluginInfos.Values.Where(p =>
                     p.Metadata.Name.IndexOf("Material", StringComparison.OrdinalIgnoreCase) >= 0
                     || p.Metadata.Name.IndexOf("Screencap", StringComparison.OrdinalIgnoreCase) >= 0
+                    || p.Metadata.GUID == PluginAccess.PoseEditorId || p.Metadata.GUID == PluginAccess.TimelineId
                     || p.Metadata.GUID == "com.tomtom.studiomcp").Select(p => new JObject
                 { ["id"] = p.Metadata.GUID, ["name"] = p.Metadata.Name, ["version"] = p.Metadata.Version.ToString() })),
                 ["materialEditor"] = Materials.Available, ["screencap"] = Capture.Available,
                 ["depthCapture"] = Capture.DepthAvailable, ["captureOptions"] = Capture.Capabilities,
                 ["game"] = Game, ["bridgeVersion"] = Info.Metadata.Version.ToString(), ["bridgeBuild"] = Build(), ["schemaVersion"] = SchemaVersion,
                 ["maker"] = InStudio ? null : MakerState(),
+                ["characterControls"] = InStudio, ["poseEditor"] = new JObject { ["available"] = InStudio && PoseEditorCommands.Available },
+                ["timeline"] = InStudio ? TimelineCommands.State() : null,
                 ["jobs"] = new JObject { ["capture"] = Capture.Busy, ["sample"] = Samples.Busy, ["characterLoad"] = Maker.CharacterLoading },
                 ["unsupportedHere"] = InStudio
                     ? new JArray("maker.*", "coordinate/character cards", "pose_list/pose_set", "sample cases with pose")
-                    : new JArray("scene.*", "object.*", "light.*", "camera slots", "render.set", "skybox", "tonemap", "native effects/sky", "dof_compat", "add_character")
+                    : new JArray("scene.*", "object.*", "light.*", "camera slots", "render.set", "skybox", "tonemap", "native effects/sky", "dof_compat", "add_character", "character.*", "pose.*", "timeline.*")
             };
             if (method.StartsWith("sample.", StringComparison.Ordinal)) return Samples.Execute(method, args);
             if (method.StartsWith("chara.visibility_", StringComparison.Ordinal) || method.StartsWith("chara.preview_", StringComparison.Ordinal))
                 return Visibility.Execute(method, args);
+            if (method.StartsWith("character.", StringComparison.Ordinal) || method.StartsWith("pose.", StringComparison.Ordinal) || method.StartsWith("timeline.", StringComparison.Ordinal))
+            {
+                if (!InStudio) throw new NotSupportedException(method + " is Studio-only; it is unavailable in the character maker.");
+                if (method.StartsWith("character.", StringComparison.Ordinal)) return Kinematics.Execute(method, args);
+                return method.StartsWith("pose.", StringComparison.Ordinal) ? PoseEditor.Execute(method, args) : Timeline.Execute(method, args);
+            }
             if (method.StartsWith("me.", StringComparison.Ordinal)) return Materials.Execute(method, args);
             if (method.StartsWith("capture.", StringComparison.Ordinal)) return Capture.Execute(method, args);
             if (method.StartsWith("batch.", StringComparison.Ordinal)) return Batches.Execute(method, args);
@@ -305,7 +322,12 @@ namespace StudioMcp.Bridge
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
                 || method == "object.set_visible" || method == "maker.clothes_state" || method == "maker.coordinate_save" || method == "maker.coordinate_load" || method == "maker.character_load" || method == "sample.start"
                 || method == "chara.visibility_set" || method == "chara.visibility_restore" || method == "chara.preview_set" || method == "chara.preview_restore" || method == "chara.shape_set" || method == "chara.accessory_set" || method == "chara.bones_set"
-                || method == "chara.expression_set" || method == "chara.dynamic_bone_set" || method == "maker.pose_set" || method == "analysis.clipping_sweep" || method == "mask.apply" || method == "mask.revert" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
+                || method == "chara.expression_set" || method == "chara.dynamic_bone_set" || method == "maker.pose_set" || method == "analysis.clipping_sweep" || method == "mask.apply" || method == "mask.revert" || method == "tonemap.set" || method == "dof_compat.set"
+                || method == "character.kinematics" || method == "character.control_set"
+                || method == "pose.bone_set" || method == "pose.bone_reset" || method == "pose.blendshape_set" || method == "pose.blendshape_reset"
+                || method == "timeline.control" || method == "timeline.settings" || method == "timeline.track_create"
+                || method == "timeline.track_set" || method == "timeline.track_remove" || method == "timeline.keyframe_set" || method == "timeline.keyframe_remove"
+                || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 
         private static JObject Error(string id, Exception error) => new JObject

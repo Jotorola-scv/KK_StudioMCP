@@ -149,3 +149,35 @@ warnings/errors. The five isolated tonemap checks above and three invalid timeou
 and non-numeric) passed against the production sources. Actual stdio MCP discovery returned all
 37 tools, including the corrected tonemap ownership and render-queue reset descriptions.
 This integration check did not rerun in-game rendering or qualify the later tools on KK at runtime.
+
+## Character animation source extension — 2026-10-29
+
+The host and both game bridges passed Release builds with zero warnings/errors. Real stdio MCP
+discovery returned 60 tools, retaining the original 40 and adding 20 character/animation tools.
+The existing 72 provider/capture contract checks also passed.
+
+The new runtime checks used an owned, initially empty KKS Studio with KKPE 2.21.4 and Timeline
+1.5.4. All interaction used PowerShell, stdio MCP and game APIs. A copy of an existing female card
+was imported; its original source file remained byte-for-byte unchanged.
+
+- Native FK/IK mode exclusion, native switchable groups, saved control writes and IK world-space
+  targets were checked. FK bone membership bitmasks were kept distinct from native switch groups.
+- KKPE position/rotation/scale writes and channel reset used the provider's stored originals.
+  Negative and overdrive shape weights were read back, and reset retained the original captured
+  on the first edit. Actual transforms/weights and stored overrides/originals are exposed separately
+  because animation or another solver can change the actual pose between frames.
+- All ten supported track kinds were created through the existing Timeline/KKPE models. Two keys
+  per track were exercised, including quaternion rotations, vector positions/scales and shape weights.
+  Paused midpoint seeks were checked, including a same-time seek after adding new keys.
+- Duplicate-track reuse retained existing names/keys. Duplicate key times required explicit
+  replacement. Curve editing, key deletion, track rename/enable/removal, play/pause and rejection of
+  editing during playback were exercised. Invalid vectors, frame rates and stale sessions were rejected.
+- A new scene checkpoint restored ten tracks and twenty keys using the native `Timeline` and `KKPE`
+  owners. Handles were reacquired after native delayed loading; interpolation values were checked
+  again. A step curve's infinite tangent survived another scene save/reload and still held its value.
+- Screencap produced an actual 480×640 character preview. This confirms the tested capture path,
+  not artistic quality or general motion quality across other posing/physics plugins.
+
+The owned test process was closed afterward. Raw responses, copied test cards, checkpoints, logs
+and captures remain local and are not included in source control. The new animation tools were
+compiled for KK, but this run does not qualify their KK runtime behavior or other provider versions.

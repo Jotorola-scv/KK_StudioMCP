@@ -64,7 +64,7 @@ public static class ToolRegistry
     public static IMcpServerBuilder WithModeTools(this IMcpServerBuilder builder)
     {
         var all = Environment.GetEnvironmentVariable("STUDIOMCP_TOOLS") == "all";
-        foreach (var method in typeof(StudioTools).GetMethods(BindingFlags.Public | BindingFlags.Static))
+        foreach (var method in new[] { typeof(StudioTools), typeof(AnimationTools) }.SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Static)))
         {
             if (method.GetCustomAttribute<McpServerToolAttribute>() == null) continue;
             if (!all && Mode == "maker" && method.GetCustomAttribute<StudioOnlyAttribute>() != null) continue;

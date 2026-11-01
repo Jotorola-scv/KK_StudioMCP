@@ -22,5 +22,5 @@ The KK profile verifies KKS-only fallback plus the common capture adapter.
 Successful tests establish MCP adapter logic only. They do not validate real GPU pixels, the
 backend plugin's algorithms or persistence, scene PNG reloads, actual ScreenshotManager events,
 provider startup order, live write/session guards or performance. Actual KKS/KK bridge builds
-against the user's game references and offline discovery of the 40 MCP tools are separate checks.
+against the user's game references and offline discovery of the 60 MCP tools are separate checks.
 Run authorized live integration tests before claiming a packaged runtime acceptance.

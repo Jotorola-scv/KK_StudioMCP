@@ -115,6 +115,22 @@ KK 與 KKS、Studio 與本體都可以同時開，各自使用不同的埠與 MC
 `shape_set` 會同步更新 Maker 的滑桿畫面。有安裝 Pushup 外掛時，胸部相關滑桿（4–13）會一併寫入 Pushup 的原始值，
 不會在換裝或切換穿脫後被還原；`shape_get` 的 `value` 是卡片存的滑桿值，`displayed` 是穿著胸罩／上衣時 Pushup 實際套用的值。
 
+### 角色姿勢與 Timeline（Studio 專用，來自原專案 0.2.0 RC1）
+
+詳細用法見 [docs/Character-Animation.md](docs/Character-Animation.md)。姿勢與動畫修改不支援 `batch_undo`，需要復原請先 `scene_checkpoint`。
+
+| 工具 | 功能 |
+|---|---|
+| `character_state` / `character_controls` | 讀取角色的 FK／IK 開關、群組與控制點（不需外掛） |
+| `character_kinematics_set` / `character_control_set` | 開關 FK／IK，設定 FK 旋轉或 IK 目標位置與旋轉 |
+| `pose_bones` / `pose_bone_set` / `pose_bone_reset` | 用 KKPE／KKSPE 調整細部骨骼，並可用它記錄的原始值還原 |
+| `pose_blendshapes` / `pose_blendshape_set` / `pose_blendshape_reset` | 用 KKPE／KKSPE 調整 blendshape，遵循它的 Link eyes components 開關 |
+| `timeline_get` / `timeline_control` / `timeline_settings` | 讀取與控制 Timeline 播放（播放、暫停、跳轉、逐幀）及專案設定 |
+| `timeline_tracks` / `timeline_track_create` / `timeline_track_set` / `timeline_track_remove` | 管理物件、FK、IK、KKPE 骨骼與 blendshape 軌道 |
+| `timeline_keyframes` / `timeline_keyframe_set` / `timeline_keyframe_remove` | 讀取、新增、修改與刪除關鍵影格 |
+
+KKPE／KKSPE 與 Timeline 是選用外掛，沒裝時這些工具會回報不可用，其他功能不受影響。
+
 ### Studio 專用
 
 場景與燈光：`scene_snapshot`、`catalog_search`、`add_item`、`add_light`、`add_character`、`light_set`、`set_transform`、`set_visible`、

@@ -7,7 +7,7 @@ import re
 import zipfile
 
 
-def audit(directory, expected_commit):
+def audit(directory, expected_commit, expected_version):
     directory = Path(directory)
     checksums = {}
     for line in (directory / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
@@ -43,7 +43,7 @@ def audit(directory, expected_commit):
                     if re.search(r"[\u3400-\u9fff]|(?i:C:[/\\]Users|D:[/\\]Document|gh[pousr]_[A-Za-z0-9_]{20,})", text):
                         raise ValueError("Nonportable document or private data")
             manifest = json.loads(archive.read("PACKAGE-MANIFEST.json"))
-            if manifest["sourceCommit"] != expected_commit or manifest["version"] != "0.1.0-rc1":
+            if manifest["sourceCommit"] != expected_commit or manifest["version"] != expected_version:
                 raise ValueError("Wrong source/version provenance")
             component = manifest["component"]
             if component not in {"Host", "KK", "KKS"} or component in components:
@@ -56,7 +56,7 @@ def audit(directory, expected_commit):
                 data = archive.read(member)
                 if len(data) != expected["bytes"] or hashlib.sha256(data).hexdigest() != expected["sha256"]:
                     raise ValueError("Payload hash mismatch: " + member)
-            required = {"LICENSE", "INSTALL.md", "ACCEPTANCE.md", "RELEASE-NOTES.md", "THIRD-PARTY-NOTICES.md", "licenses/nuget-packages.json"}
+            required = {"LICENSE", "INSTALL.md", "ACCEPTANCE.md", "RELEASE-NOTES.md", "CHARACTER-ANIMATION.md", "THIRD-PARTY-NOTICES.md", "licenses/nuget-packages.json"}
             if not required <= set(names):
                 raise ValueError("Missing delivery documentation/notices")
             dlls = {x for x in names if x.lower().endswith(".dll")}
@@ -65,7 +65,7 @@ def audit(directory, expected_commit):
                 config = json.loads(archive.read("Host/StudioMcp.Host.runtimeconfig.json"))
                 if config["runtimeOptions"]["tfm"] != "net8.0":
                     raise ValueError("Wrong host runtime")
-                if not any(x.startswith("StudioMcp.Host/0.1.0-rc1") for x in deps["libraries"]):
+                if "StudioMcp.Host/" + expected_version not in deps["libraries"]:
                     raise ValueError("Wrong actual host version")
                 allowed = {"StudioMcp.Host.dll"}
                 for target in deps["targets"].values():
@@ -96,5 +96,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--assets", required=True)
     parser.add_argument("--commit", required=True)
+    parser.add_argument("--version", required=True)
     args = parser.parse_args()
-    print(json.dumps(audit(args.assets, args.commit), indent=2))
+    print(json.dumps(audit(args.assets, args.commit, args.version), indent=2))

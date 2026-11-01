@@ -565,7 +565,7 @@ public static class StudioTools
     // Parameters that carry JSON. Some MCP clients send them as JSON text even with an object schema; parse that here.
     private static readonly HashSet<string> JsonKeys = ["values", "colors", "hair", "sliders", "markers", "value", "operations", "cases", "pluginToggles", "clothes", "shapes"];
 
-    private static JsonObject Args(object value)
+    internal static JsonObject Args(object value)
     {
         var node = System.Text.Json.JsonSerializer.SerializeToNode(value, new System.Text.Json.JsonSerializerOptions { DefaultIgnoreCondition =
             System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull })!.AsObject();
