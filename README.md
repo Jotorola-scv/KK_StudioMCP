@@ -81,13 +81,36 @@ KK 與 KKS、Studio 與本體都可以同時開，各自使用不同的埠與 MC
 **拼接髮調整流程**：`hair_check` 找缺口 → `capture_turntable` 帶 `markers` 看位置 → 用 `accessory_set`（放進 `batch_apply`）依建議位移調整 →
 再跑 `hair_check` 直到覆蓋率達標；不滿意就 `batch_undo`。
 
+### 診斷（Studio 與 Maker 都能用）
+
+| 工具 | 功能 |
+|---|---|
+| `rig_export` | 匯出目前這一幀的完整骨架資料，給修權重與離線重播用：未 weld 的原始網格、UV、submesh、權重、bindposes、骨骼完整路徑、blend shape，以及同幀的骨世界矩陣、烘焙頂點、身型、ABMX、穿著與動畫時間。內建重播驗算回報誤差（實測小於 0.001 mm）；讀不到的欄位會列在 `missing`（模型關閉 Read/Write 時，權重與原始頂點讀不到）。格式是二進位陣列加 `manifest.json`，numpy 可直接讀 |
+| `visibility_set` / `visibility_restore` / `visibility_get` | 暫時隱藏指定部位（頭髮、飾品、服裝或 renderer），用來看被遮住的地方。不改飾品位置與縮放，也不會存進卡片 |
+| `preview_set` / `preview_restore` | 暫時換成中性灰（看摺痕與尖刺）或每件不同的純色（分辨重疊的衣服），也可關掉相機後製解決過曝。不寫進 Material Editor，存卡前自動還原。法線與線框預覽不支援 |
+
+### 輸出檔清理（Studio 與 Maker 都能用，遊戲沒開也可以）
+
+| 工具 | 功能 |
+|---|---|
+| `outputs_list` | 列出 StudioMCP 寫在 `UserData/StudioMCP` 的輸出（截圖、網格匯出、骨架取樣、遮罩預覽、存檔點、安裝備份）：數量、大小、這次工作階段佔多少 |
+| `outputs_cleanup` | 刪除這些輸出。agent 會自行判斷時機：看完截圖、讀完匯出資料、開始大量取樣前空間不足、任務結束時。預設只刪這次工作階段產生的（`scope: session`），舊資料要 `scope: all`；可用 `keepPaths` 保留要引用的檔案、`keepLatest`、`olderThanHours`、`dryRun`。不會動人物卡、服裝卡，也不會動你自己放在這個資料夾的圖片或 `textures/`。跑工作時和唯讀模式下會拒絕；刪除無法復原 |
+
 ### Maker 專用
 
 | 工具 | 功能 |
 |---|---|
+| `game_launch` | 開遊戲並等到 MCP 接上（Maker 伺服器開本體，Studio 伺服器開 CharaStudio）。已在執行就不重開；同一款遊戲從別的資料夾執行時會拒絕，因為兩者共用埠。不會載入或儲存任何東西。Studio 伺服器也有這個工具 |
+| `maker_enter` | **遊戲一開就能用**：從主選單進入 Maker（和點「角色製作」→ 女性／男性相同），等到人物就緒才回傳 `sceneSession`。遊戲還在 logo 畫面時會先等主選單；已在 Maker 會直接回傳；在遊戲劇情或自由 H 等其他場景會拒絕，不會丟掉進度 |
+| `character_list` / `character_load` | 列出與載入人物卡（`UserData/chara`）。臉、身體、髮型、參數、服裝的選項和遊戲讀取畫面相同，`pluginToggles` 可個別設定外掛的載入選項；等人物與外掛資料就緒才回傳新的 `sceneSession`。不會存卡 |
 | `maker_snapshot` | 角色名稱、目前服裝套數、服裝 9 格／頭髮／飾品的清單 ID 與名稱、穿脫狀態、鏡頭，以及寫入用的 `sceneSession` |
 | `maker_set_clothes_state` | 切換部位：0 穿著、1 半脫、2 半脫 2、3 脫掉（暫時狀態，不存卡），用來檢查半脫穿模 |
+| `coordinate_save` | 把目前這套服裝存成服裝卡（`UserData/coordinate`），和 Maker 的存檔按鈕一樣：遊戲的人台縮圖、Material Editor 等外掛資料一起存進卡片，存完 Maker 的服裝清單會更新。可指定服裝名稱 `name` 與檔名 `fileName`，覆蓋舊檔要加 `overwrite`；回傳路徑、卡片內的外掛資料清單與縮圖 |
+| `coordinate_list` | 列出 `UserData/coordinate`（含子資料夾）的服裝卡，新的在前，含檔名與服裝名稱；`query` 可用檔名或服裝名稱搜尋 |
+| `coordinate_load` | 把服裝卡載入目前這套服裝，和 Maker 的讀取按鈕一樣，Material Editor 等外掛資料一起載入；`clothes`／`accessories` 可只載入衣服或只載入飾品。無法用 `batch_undo` 復原，需要的話先 `coordinate_save` 備份；載入後回傳新的 `sceneSession` |
 | `pose_list` / `pose_set` | 切換 Maker 預覽姿勢（`-1` 回到預設），檢查動作下的頭髮與服裝 |
+| `pose_sample` | 精確取樣一個姿勢：`frozen` 停在指定時間，用固定的幀時間（`fixedFps`，預設 60）模擬物理，等骨骼靜止後，在同一幀讀取骨矩陣、烘焙網格和截圖。實測同一姿勢重複取樣的差異在 0.02 mm 內，中間換過別的姿勢也一樣，物理關閉時完全相同；每個姿勢約 5 秒，趕時間可把 `settleMm` 調大（0.05 約 3.5 秒、差異 0.07 mm 內）。`continuous` 讓動畫與物理持續播放，每隔幾幀記錄一次，時間步長也固定。物理可選 `reset`、`settle`、`off`。結束後還原姿勢、穿著、身型 |
+| `sample_job_start` / `sample_job_status` / `sample_job_cancel` / `sample_job_cleanup` | 大量取樣（例如所有姿勢 × 穿著）的背景工作：查進度與剩餘磁碟估計、中途取消、用 `resume` 接續（遊戲重開後也可以）；結束或取消都會還原人物；清理只刪自己寫入的檔案 |
 
 `shape_set` 會同步更新 Maker 的滑桿畫面。有安裝 Pushup 外掛時，胸部相關滑桿（4–13）會一併寫入 Pushup 的原始值，
 不會在換裝或切換穿脫後被還原；`shape_get` 的 `value` 是卡片存的滑桿值，`displayed` 是穿著胸罩／上衣時 Pushup 實際套用的值。
@@ -101,16 +124,17 @@ KK 與 KKS、Studio 與本體都可以同時開，各自使用不同的埠與 MC
 
 ## 移植服裝時的檢查流程
 
-1. 在 Maker 載入角色與移植的服裝，對 agent 說「幫我檢查這件衣服」。
+1. 對 agent 說「幫我檢查這件衣服」：agent 用 `game_launch` 開遊戲、`maker_enter` 進 Maker，`character_load` 載入人物，`coordinate_load` 載入服裝。不必先手動進 Maker。
 2. agent 用 `maker_snapshot` 找到服裝格位，`materials_list` → `material_inspect` 查看 shader 與貼圖。
 3. 用 `shape_set` 把身型推到極端（例如胸部、腰、大腿），配合 `maker_set_clothes_state` 切換半脫，`capture` 截圖找穿模。
 4. 用 `mesh_export` 匯出身體 + 服裝，在 Blender 裡（可配合 Blender MCP）量測穿模位置與權重問題。
-5. 不滿意就 `batch_undo`，滿意就在 Maker 存卡。
+5. 不滿意就 `batch_undo`，滿意就用 `coordinate_save` 存成服裝卡（或在 Maker 手動存卡）。
 
 ## 使用限制
 
+- 每個 MCP 伺服器只列出在該模式能用的工具：`kksmaker`／`kkmaker` 不會列出 Studio 專用工具，反之亦然（要全部列出可設環境變數 `STUDIOMCP_TOOLS=all`）。
 - 載入別的角色或服裝後，`sceneSession` 會更新，網格 ID 也會失效，需要重新查詢。剛進 Maker 時可能短暫回傳 `Maker character is still loading`，重試即可。
-- 不會更換服裝品項、改 Maker 內建的顏色或花紋、新增飾品；只修改材質層與身型。
+- 除了整張載入服裝卡或人物卡，不會單獨更換服裝品項、改 Maker 內建的顏色或花紋、新增飾品；其餘只修改材質層與身型。
 - `mesh_export` 匯出的是世界座標（OBJ 的 x 軸已鏡像成右手座標；Blender 用預設 forward -Z、up Y 匯入）。CPU 無法讀取的靜態網格會被略過，並列出原因。
 - KKS 與 KK 都已實測（KK 為 Unity 5.6／.NET 3.5 版本，功能相同）。
 - 同一台電腦有多個 KK（或多個 KKS）安裝時，MCP 名稱相同，最後執行安裝的那一個會生效。
@@ -130,7 +154,7 @@ dotnet build src/StudioBridge/StudioBridge.csproj -c Release -p:Game=KKS -p:Game
 ## 相對原專案的修改
 
 - **本體 Maker 支援**：同一顆 DLL 依程式名稱切換 Studio／Maker 模式；Maker 使用獨立的埠與連線檔 `maker-connection.json`，並在 Maker 重新載入角色時更新 session。
-- **新工具**：`maker_snapshot`、`maker_set_clothes_state`、`shape_get`、`shape_set`、`mesh_export`、`accessory_list`、`accessory_set`、
+- **新工具**：`maker_snapshot`、`game_launch`、`maker_enter`、`character_list`、`character_load`、`maker_set_clothes_state`、`coordinate_save`、`coordinate_list`、`coordinate_load`、`rig_export`、`pose_sample`、`sample_job_*`、`visibility_*`、`preview_*`、`outputs_list`、`outputs_cleanup`、`shape_get`、`shape_set`、`mesh_export`、`accessory_list`、`accessory_set`、
   `hair_check`、`clipping_sweep`、`capture_turntable`、`expression_get/set`、`pose_list/set`、`dynamic_bones_get`、`dynamic_bone_set`、`bones_get/set`、
   `hair_mask_preview`、`hair_mask_apply`、`hair_mask_revert`。
 - **修正材質被複製的問題**：原版讀取 `renderer.materials`，每次呼叫都會複製所有材質，讓遊戲持有的原材質失效；改為 `sharedMaterials`（與 Material Editor 一致）。
@@ -157,7 +181,10 @@ character's baked meshes (OBJ + MTL + textures) to check clothing fit in Blender
   The host runs under Microsoft's signed `dotnet.exe` (Install.bat installs the .NET 8 Runtime via winget if missing; no
   custom exe, so antivirus heuristics stay quiet). It copies the bridge, enables writes (`--read-only` to skip) and
   registers `studiomcp`/`kksmaker` (KKS) or `kkstudiomcp`/`kkmaker` (KK) with Claude Code, Claude Desktop and Codex.
-- **New tools**: `maker_snapshot`, `maker_set_clothes_state`, `shape_get`, `shape_set`, `mesh_export`; spliced-hair tools
+- **New tools**: `maker_snapshot`, `maker_set_clothes_state`, `game_launch` (start the game and wait for its bridge), `maker_enter` (open the maker from the title menu as soon as the game runs), `character_list` / `character_load`,
+  `coordinate_save` / `coordinate_list` / `coordinate_load` (save, find and load coordinate cards like the maker's buttons, plugin data
+  included), `rig_export` and `pose_sample` (same-frame rest mesh, skin weights, bone matrices and baked vertices, replay-verified),
+  `sample_job_*` (cancellable, resumable batches), `visibility_*` and `preview_*` (runtime-only hiding and diagnostic looks), `outputs_list` / `outputs_cleanup` (agents free the disk space their work used; only StudioMCP's own files, this session's by default), `shape_get`, `shape_set`, `mesh_export`; spliced-hair tools
   `accessory_list`, `accessory_set` (MoreAccessories slots, Hair Accessory Customizer) and `hair_check` (scalp coverage, gaps with
   candidate pieces and suggested moves, color/gloss consistency); `clipping_sweep`, `capture_turntable` (multi-view sheet with gap
   markers), `expression_get/set`, `pose_list/set`, `dynamic_bones_get`/`dynamic_bone_set`, ABMX `bones_get/set` (also on accessory

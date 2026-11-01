@@ -16,6 +16,7 @@
     <Reference Include="Assembly-CSharp" HintPath="$(ManagedRoot)/Assembly-CSharp.dll" Private="false" />
     <Reference Include="Assembly-CSharp-firstpass" HintPath="$(ManagedRoot)/Assembly-CSharp-firstpass.dll" Private="false" />
     <Reference Include="UnityEngine" HintPath="$(ManagedRoot)/UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.UI" HintPath="$(ManagedRoot)/UnityEngine.UI.dll" Private="false" />
     <Reference Include="KKAPI" HintPath="$(GameRoot)/BepInEx/plugins/KKAPI.dll" Private="false" Condition="'$(Game)' == 'KK'" />
     <Reference Include="KKSAPI" HintPath="$(GameRoot)/BepInEx/plugins/KKSAPI.dll" Private="false" Condition="'$(Game)' == 'KKS'" />
     <Reference Include="ExtensibleSaveFormat" HintPath="$(GameRoot)/BepInEx/plugins/KKS_BepisPlugins/KKS_ExtensibleSaveFormat.dll" Private="false" Condition="'$(Game)' == 'KKS'" />

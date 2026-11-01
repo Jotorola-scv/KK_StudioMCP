@@ -47,8 +47,22 @@ namespace StudioMcp.Bridge
         internal BoneCommands Bones;
         internal AnalysisCommands Analysis;
         internal MaskCommands Masks;
+        internal SampleCommands Samples;
+        internal VisibilityCommands Visibility;
+        // Frame of the last maker reload event, so loads can wait for plugins to settle.
+        internal int LastReloadFrame;
+        // The title has appeared, so a scene without a TitleScene is a game in progress rather than the startup logos.
+        internal bool SeenTitle;
+        // Bumped whenever a bridge method or its arguments change shape, so clients can tell which build they talk to.
+        internal const int SchemaVersion = 2;
+        private static string _build;
         // The main game exposes only the character maker: one character, no Studio scene.
         internal static readonly bool InStudio = Paths.ProcessName == "CharaStudio";
+#if KK
+        internal const string Game = "KK";
+#else
+        internal const string Game = "KKS";
+#endif
         internal string Session = Guid.NewGuid().ToString("N");
         internal string OutputRoot;
         internal bool WritesEnabled => _allowWrites.Value
@@ -88,6 +102,9 @@ namespace StudioMcp.Bridge
             Bones = new BoneCommands(this);
             Analysis = new AnalysisCommands(this);
             Masks = new MaskCommands(this);
+            Samples = new SampleCommands(this);
+            Visibility = new VisibilityCommands(this);
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += (scene, mode) => { if (scene.name == "Title") SeenTitle = true; };
             if (InStudio) StudioSaveLoadApi.RegisterExtraBehaviour<BridgeSceneController>("com.tomtom.studiomcp.scene");
             Batches = new BatchCommands(this);
             _originalBackground = Application.runInBackground;
@@ -115,7 +132,9 @@ namespace StudioMcp.Bridge
         private void SceneLoaded(object sender, SceneLoadEventArgs args)
         {
             Session = Guid.NewGuid().ToString("N");
+            LastReloadFrame = Time.frameCount;
             Batches.Clear();
+            Visibility.Forget();
         }
 
         private void MakerChanged(object sender, EventArgs args) => SceneLoaded(sender, null);
@@ -147,6 +166,7 @@ namespace StudioMcp.Bridge
         private void Update()
         {
             CaptureCommands.TrackCamera();
+            Visibility.Tick();
             var budget = System.Diagnostics.Stopwatch.StartNew();
             for (var count = 0; count < 8 && budget.ElapsedMilliseconds < 4; count++)
             {
@@ -161,9 +181,11 @@ namespace StudioMcp.Bridge
                     var args = work.Request["args"] as JObject ?? new JObject();
                     if (IsWrite(method))
                     {
-                        if (!WritesEnabled) throw new UnauthorizedAccessException("Writes are disabled in bridge configuration.");
+                        if (!WritesEnabled && !ReadsOnly(method, args)) throw new UnauthorizedAccessException("Writes are disabled in bridge configuration.");
                         if ((string)args["sceneSession"] != Session) throw new InvalidOperationException("Scene session changed; inspect the scene again.");
                         if (Capture.Busy) throw new InvalidOperationException("Capture is in progress; scene writes are temporarily blocked.");
+                        if (Samples.Busy) throw new InvalidOperationException("A sample job is running; writes are blocked until it ends (sample_job_cancel stops it).");
+                        if (Maker.CharacterLoading) throw new InvalidOperationException("A character card is loading; wait for character_load to finish.");
                         if (!method.StartsWith("batch.", StringComparison.Ordinal)) Batches.Clear();
                     }
                     var result = Dispatch(method, args);
@@ -203,8 +225,17 @@ namespace StudioMcp.Bridge
                     || p.Metadata.GUID == "com.tomtom.studiomcp").Select(p => new JObject
                 { ["id"] = p.Metadata.GUID, ["name"] = p.Metadata.Name, ["version"] = p.Metadata.Version.ToString() })),
                 ["materialEditor"] = Materials.Available, ["screencap"] = Capture.Available,
-                ["depthCapture"] = Capture.DepthAvailable, ["captureOptions"] = Capture.Capabilities
+                ["depthCapture"] = Capture.DepthAvailable, ["captureOptions"] = Capture.Capabilities,
+                ["game"] = Game, ["bridgeVersion"] = Info.Metadata.Version.ToString(), ["bridgeBuild"] = Build(), ["schemaVersion"] = SchemaVersion,
+                ["maker"] = InStudio ? null : MakerState(),
+                ["jobs"] = new JObject { ["capture"] = Capture.Busy, ["sample"] = Samples.Busy, ["characterLoad"] = Maker.CharacterLoading },
+                ["unsupportedHere"] = InStudio
+                    ? new JArray("maker.*", "coordinate/character cards", "pose_list/pose_set", "sample cases with pose")
+                    : new JArray("scene.*", "object.*", "light.*", "camera slots", "render.set", "skybox", "tonemap", "native effects/sky", "dof_compat", "add_character")
             };
+            if (method.StartsWith("sample.", StringComparison.Ordinal)) return Samples.Execute(method, args);
+            if (method.StartsWith("chara.visibility_", StringComparison.Ordinal) || method.StartsWith("chara.preview_", StringComparison.Ordinal))
+                return Visibility.Execute(method, args);
             if (method.StartsWith("me.", StringComparison.Ordinal)) return Materials.Execute(method, args);
             if (method.StartsWith("capture.", StringComparison.Ordinal)) return Capture.Execute(method, args);
             if (method.StartsWith("batch.", StringComparison.Ordinal)) return Batches.Execute(method, args);
@@ -232,6 +263,37 @@ namespace StudioMcp.Bridge
             return Scene.Execute(method, args);
         }
 
+        // Process up, maker scene loaded, character loading, ready: tools must not assume the maker is usable just because the game runs.
+        private JObject MakerState()
+        {
+            var character = MakerAPI.InsideAndLoaded ? MakerAPI.GetCharacterControl() : null;
+            var state = !MakerAPI.InsideAndLoaded ? "not_in_maker" : character == null || !character.loadEnd || Maker.CharacterLoading ? "character_loading" : "ready";
+            var game = Maker.GameState();
+            return new JObject { ["state"] = state, ["gameState"] = game, ["scene"] = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                ["canEnterMaker"] = game == "title" || game == "starting", ["seenTitle"] = SeenTitle,
+                ["character"] = character != null ? character.fileParam.fullname : null,
+                ["framesSinceReload"] = Time.frameCount - LastReloadFrame };
+        }
+
+        // First 12 hex digits of the bridge DLL's MD5, to tell builds of the same version apart.
+        private static string Build()
+        {
+            if (_build != null) return _build;
+            try
+            {
+                using (var md5 = System.Security.Cryptography.MD5.Create())
+                    _build = BitConverter.ToString(md5.ComputeHash(File.ReadAllBytes(typeof(Plugin).Assembly.Location))).Replace("-", "").Substring(0, 12).ToLowerInvariant();
+            }
+            catch (Exception) { _build = "unknown"; }
+            return _build;
+        }
+
+        // A sample of the present frame (rig_export) changes nothing, so it also works on a read-only install.
+        private static bool ReadsOnly(string method, JObject args)
+        {
+            return method == "sample.start" && (string)args["mode"] == "current" && args["cases"] == null && args["resume"] == null;
+        }
+
         internal static bool IsWrite(string method)
         {
             return method == "scene.add_item" || method == "scene.add_character" || method == "scene.checkpoint"
@@ -241,7 +303,8 @@ namespace StudioMcp.Bridge
                 || method == "me.set" || method == "me.reset" || method == "me.import_texture" || method == "me.texture_transform"
                 || method == "me.render_queue"
                 || method == "render.set" || method == "skybox.bind" || method == "native_effects.set" || method == "native_sky.set"
-                || method == "object.set_visible" || method == "maker.clothes_state" || method == "chara.shape_set" || method == "chara.accessory_set" || method == "chara.bones_set"
+                || method == "object.set_visible" || method == "maker.clothes_state" || method == "maker.coordinate_save" || method == "maker.coordinate_load" || method == "maker.character_load" || method == "sample.start"
+                || method == "chara.visibility_set" || method == "chara.visibility_restore" || method == "chara.preview_set" || method == "chara.preview_restore" || method == "chara.shape_set" || method == "chara.accessory_set" || method == "chara.bones_set"
                 || method == "chara.expression_set" || method == "chara.dynamic_bone_set" || method == "maker.pose_set" || method == "analysis.clipping_sweep" || method == "mask.apply" || method == "mask.revert" || method == "tonemap.set" || method == "dof_compat.set" || method.StartsWith("batch.", StringComparison.Ordinal);
         }
 

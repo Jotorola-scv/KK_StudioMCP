@@ -441,6 +441,7 @@ namespace StudioMcp.Bridge
             var applied = new JArray();
             foreach (var layer in preview.Layers)
             {
+                Directory.CreateDirectory(Folder(preview.Id));     // outputs_cleanup may have removed the preview's files
                 var path = Path.Combine(Folder(preview.Id), Name(layer) + "-applied.png");
                 File.WriteAllBytes(path, MaskedPng(layer));
                 // Through Material Editor, so the texture is stored in the card.

@@ -112,7 +112,7 @@ public static class Installer
             ? Environment.ProcessPath! : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "dotnet.exe");
         Console.WriteLine("✔ 已安裝 MCP 伺服器 → " + HostFolder);
 
-        if (writes) EnableWrites(game);
+        SetWrites(game, writes);
         Console.WriteLine(writes ? "✔ 已開啟寫入（AI 可以修改材質與場景）" : "・維持唯讀模式（--read-only）");
 
         var connections = Path.Combine(game, "UserData", "StudioMCP");
@@ -208,15 +208,17 @@ public static class Installer
         return sha.ComputeHash(first).AsSpan().SequenceEqual(sha.ComputeHash(second));
     }
 
-    private static void EnableWrites(string game)
+    // Also turns writes off: reinstalling with --read-only must not leave them on from an earlier install.
+    private static void SetWrites(string game, bool writes)
     {
         var config = Path.Combine(game, "BepInEx", "config", "com.tomtom.studiomcp.cfg");
+        var line = "AllowWrites = " + (writes ? "true" : "false");
         Directory.CreateDirectory(Path.GetDirectoryName(config)!);
-        if (!File.Exists(config)) { File.WriteAllText(config, "[Server]\n\nAllowWrites = true\n"); return; }
+        if (!File.Exists(config)) { File.WriteAllText(config, "[Server]\n\n" + line + "\n"); return; }
         var text = File.ReadAllText(config);
-        var updated = Regex.Replace(text, @"^AllowWrites\s*=\s*\w+", "AllowWrites = true", RegexOptions.Multiline);
-        if (updated == text && !Regex.IsMatch(text, @"^AllowWrites\s*=", RegexOptions.Multiline))
-            updated = Regex.Replace(text, @"^\[Server\]\s*$", "[Server]\n\nAllowWrites = true", RegexOptions.Multiline);
+        var updated = Regex.IsMatch(text, @"^AllowWrites\s*=", RegexOptions.Multiline)
+            ? Regex.Replace(text, @"^AllowWrites\s*=\s*\w+", line, RegexOptions.Multiline)
+            : Regex.Replace(text, @"^\[Server\]\s*$", "[Server]\n\n" + line, RegexOptions.Multiline);
         File.WriteAllText(config, updated);
     }
 

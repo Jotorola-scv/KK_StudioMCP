@@ -4,7 +4,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$GameRoot,
     [ValidateSet('KKS', 'KK')][string]$Game = 'KKS',
-    [string]$Version = '0.1.0-maker.5'
+    [string]$Version = '0.1.0-maker.6'
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -18,7 +18,7 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 
 dotnet build "$repo/src/StudioBridge/StudioBridge.csproj" -c Release --nologo -v:minimal "-p:Game=$Game" "-p:GameRoot=$GameRoot"
 if ($LASTEXITCODE) { throw 'Bridge build failed.' }
-dotnet publish "$repo/src/StudioMcp.Host" -c Release -p:DebugType=none -o "$stage/Host" --nologo -v:minimal
+dotnet publish "$repo/src/StudioMcp.Host" -c Release -p:DebugType=none "-p:InformationalVersion=$Version" -o "$stage/Host" --nologo -v:minimal
 if ($LASTEXITCODE) { throw 'Host publish failed.' }
 
 $plugin = New-Item -ItemType Directory -Force "$stage/BepInEx/plugins/StudioMCP"

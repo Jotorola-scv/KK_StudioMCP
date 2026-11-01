@@ -32,7 +32,7 @@ namespace StudioMcp.Bridge
             "VerticalAngle", "Depth", "Roundness", "AreolaDepth", "NippleWidth", "NippleDepth" };
         private const int PushupFirst = 4;
         // Shadow proxies, selection highlights, silhouettes and the maker height bar are not part of the visible model.
-        private static readonly string[] HelperShaders = { "Bonelyfans", "Shader Forge/shadowcast", "Custom/Silhouette", "Shader Forge/FlatColorTransparent" };
+        internal static readonly string[] HelperShaders = { "Bonelyfans", "Shader Forge/shadowcast", "Custom/Silhouette", "Shader Forge/FlatColorTransparent" };
         private readonly Plugin _plugin;
         internal CharacterCommands(Plugin plugin) { _plugin = plugin; }
 
@@ -182,6 +182,9 @@ namespace StudioMcp.Bridge
             var scopes = args["scopes"] is JArray list ? list.Select(t => (string)t).ToArray() : Scopes;
             foreach (var scope in scopes)
                 if (!Scopes.Contains(scope)) throw new ArgumentException("scopes may contain Character, Clothing, Hair and Accessory.");
+            // rendererIds/accessorySlots/hairSlots/clothes pick exact parts (plus the body unless includeBody is false).
+            var picked = new[] { "rendererIds", "accessorySlots", "hairSlots", "clothes" }.Any(k => args[k] != null && args[k].Type != JTokenType.Null)
+                ? new HashSet<Renderer>(SampleCommands.Renderers(character, args, false)) : null;
             var includeInactive = (bool?)args["includeInactive"] ?? false;
             var textures = (bool?)args["textures"] ?? true;
             var includeHelpers = (bool?)args["includeHelpers"] ?? false;
@@ -201,7 +204,7 @@ namespace StudioMcp.Bridge
                 int slot;
                 GameObject part;
                 var scope = MaterialCommands.PartOf(character, renderer.transform, out slot, out part);
-                if (!scopes.Contains(scope)) continue;
+                if (picked != null ? !picked.Contains(renderer) : !scopes.Contains(scope)) continue;
                 if (!includeInactive && (!renderer.enabled || !renderer.gameObject.activeInHierarchy)) continue;
                 if (!includeHelpers && renderer.sharedMaterials.Length > 0
                     && renderer.sharedMaterials.All(m => m == null || HelperShaders.Contains(m.shader.name))) continue;
@@ -351,7 +354,8 @@ namespace StudioMcp.Bridge
             }
         }
 
-        private static string F(float value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+        // Round-trip precision: six decimals moved tiny triangles by up to a micrometre.
+        private static string F(float value) => value.ToString("R", CultureInfo.InvariantCulture);
         // .NET 3.5 (KK) has no string.Concat(IEnumerable<char>), so build the string explicitly.
         private static string Clean(string value) => new string(value.Select(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' ? c : '_').ToArray());
     }

@@ -18,6 +18,6 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
 builder.Services.AddSingleton<BridgeClient>();
-builder.Services.AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly();
+builder.Services.AddMcpServer(options => options.ServerInstructions = ToolRegistry.Instructions).WithStdioServerTransport().WithModeTools();
 await builder.Build().RunAsync();
 return 0;

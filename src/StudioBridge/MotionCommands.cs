@@ -67,7 +67,12 @@ namespace StudioMcp.Bridge
         private static JArray Patterns(IEnumerable list)
         {
             var result = new JArray();
+#if KK
+            // KK keeps these lists as spreadsheet rows: id, name.
+            foreach (ExcelData.Param item in list) result.Add(new JObject { ["id"] = int.Parse(item.list[0]), ["name"] = item.list[1] });
+#else
             foreach (var item in list) result.Add(new JObject { ["id"] = JToken.FromObject(Member(item, "ID")), ["name"] = (string)Member(item, "Name") });
+#endif
             return result;
         }
 
@@ -77,7 +82,7 @@ namespace StudioMcp.Bridge
             var result = new JArray();
             var index = 0;
             foreach (var pose in (IEnumerable)Member(maker, "lstPose"))
-                result.Add(new JObject { ["index"] = index++, ["state"] = (string)Member(pose, "State"), ["asset"] = (string)Member(pose, "Asset") });
+                result.Add(new JObject { ["index"] = index++, ["state"] = PoseState(pose), ["asset"] = PoseAsset(pose) });
             return new JObject { ["current"] = maker.animeStateName, ["poses"] = result };
         }
 
@@ -92,10 +97,23 @@ namespace StudioMcp.Bridge
             var draw = UnityEngine.Object.FindObjectOfType<ChaCustom.CvsDrawCtrl>() ?? throw new InvalidOperationException("Maker pose panel is unavailable.");
             if ((int)args["index"] < 0) { draw.ChangePoseDefault(); return Poses(); }
             draw.ChangeAnimationForce((int)args["index"], time);
-            // Keep the maker's pose dropdown in step without re-triggering its change handler.
-            var dropdown = draw.GetType().GetField("ddPose").GetValue(draw);
-            dropdown?.GetType().GetMethod("SetValueWithoutNotify")?.Invoke(dropdown, new object[] { (int)args["index"] });
+            SyncPoseDropdown(draw, (int)args["index"]);
             return Poses();
+        }
+
+        // Keeps the maker's pose dropdown in step without re-triggering its change handler. The game's card save returns to the
+        // dropdown's pose. KK's older TMP_Dropdown has no SetValueWithoutNotify, so set its value field there.
+        internal static void SyncPoseDropdown(ChaCustom.CvsDrawCtrl draw, int index)
+        {
+            var dropdown = draw.GetType().GetField("ddPose").GetValue(draw);
+            if (dropdown == null) return;
+            var type = dropdown.GetType();
+            var silent = type.GetMethod("SetValueWithoutNotify");
+            if (silent != null) { silent.Invoke(dropdown, new object[] { index }); return; }
+            var field = type.GetField("m_Value", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (field == null) return;
+            field.SetValue(dropdown, index);
+            type.GetMethod("RefreshShownValue")?.Invoke(dropdown, null);
         }
 
         private static ChaCustom.CustomBase Maker()
@@ -159,7 +177,16 @@ namespace StudioMcp.Bridge
             return type == null ? null : character.GetComponent(type);
         }
 
-        private static object Member(object target, string name)
+#if KK
+        // KK keeps the pose list as spreadsheet rows: index, bundle, asset, display name, state.
+        internal static string PoseState(object pose) => ((ExcelData.Param)pose).list[4];
+        internal static string PoseAsset(object pose) => ((ExcelData.Param)pose).list[2];
+#else
+        internal static string PoseState(object pose) => (string)Member(pose, "State");
+        internal static string PoseAsset(object pose) => (string)Member(pose, "Asset");
+#endif
+
+        internal static object Member(object target, string name)
         {
             var type = target.GetType();
             var property = type.GetProperty(name);

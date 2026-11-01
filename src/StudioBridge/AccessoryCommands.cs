@@ -82,12 +82,15 @@ namespace StudioMcp.Bridge
         {
             var hair = HairController(character);
             if (hair == null || !(bool)Call(hair, "IsHairAccessory", slot)) return null;
-            return new JObject { ["colorMatch"] = (bool)Call(hair, "GetColorMatch", slot),
+            var info = new JObject { ["colorMatch"] = (bool)Call(hair, "GetColorMatch", slot),
                 ["hairGloss"] = (bool)Call(hair, "GetHairGloss", slot),
                 ["accessoryColor"] = SceneCommands.Json((Color)Call(hair, "GetAccessoryColor", slot)),
                 ["outlineColor"] = SceneCommands.Json((Color)Call(hair, "GetOutlineColor", slot)),
-                ["glossColor"] = SceneCommands.Json((Color)Call(hair, "GetGlossColor", slot)),
                 ["length"] = (float)Call(hair, "GetHairLength", slot) };
+            // Older Hair Accessory Customizer builds (the KK one here) have no gloss color.
+            if (hair.GetType().GetMethod("GetGlossColor", new[] { typeof(int) }) != null)
+                info["glossColor"] = SceneCommands.Json((Color)Call(hair, "GetGlossColor", slot));
+            return info;
         }
 
         // Validates everything first, then writes the live coordinate and the card's copy of it, like the maker's accessory panel.
@@ -203,10 +206,13 @@ namespace StudioMcp.Bridge
             if (Plugin.InStudio || !MakerAPI.InsideAndLoaded) return;
             var type = MaterialCommands.FindType("ChaCustom.CvsAccessory");
             if (type == null) return;
-            foreach (var panel in UnityEngine.Object.FindObjectsOfType(type))
+            // nSlotNo is private in KKS. A panel that was never opened has nothing cached and reads the character when it opens.
+            var number = type.GetProperty("nSlotNo", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            if (number == null) return;
+            foreach (Behaviour panel in UnityEngine.Object.FindObjectsOfType(type))
                 try
                 {
-                    if ((int)type.GetProperty("nSlotNo").GetValue(panel, null) == slot)
+                    if (panel.enabled && (int)number.GetValue(panel, null) == slot)
                         type.GetMethod("UpdateCustomUI", Type.EmptyTypes)?.Invoke(panel, null);
                 }
                 catch (Exception error) { UnityEngine.Debug.LogWarning("[StudioMCP] Accessory panel refresh: " + error.GetBaseException().Message); }

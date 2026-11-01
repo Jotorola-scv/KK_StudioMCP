@@ -76,6 +76,12 @@ namespace StudioMcp.Bridge
                         ["camera"] = CameraState() };
                 case "scene.add_item":
                     ValidateTransform(args);
+                    // Studio turns an unknown id into an empty placeholder object instead of failing.
+                    var itemGroup = (int?)args["group"] ?? 0;
+                    var itemCategory = (int?)args["category"] ?? 0;
+                    if (!Info.Instance.dicItemLoadInfo.ContainsKey(itemGroup) || !Info.Instance.dicItemLoadInfo[itemGroup].ContainsKey(itemCategory)
+                        || !Info.Instance.dicItemLoadInfo[itemGroup][itemCategory].ContainsKey((int?)args["itemId"] ?? 0))
+                        throw new ArgumentException("Unknown item catalog ID; use catalog_search.");
                     var item = AddObjectItem.Add((int?)args["group"] ?? 0,
                         (int?)args["category"] ?? 0, (int?)args["itemId"] ?? 0);
                     if (item == null) throw new InvalidOperationException("Studio did not create the item.");
